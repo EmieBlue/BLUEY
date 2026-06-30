@@ -1,0 +1,29 @@
+# Bluy — SPA routing for Apache / OpenLiteSpeed / CyberPanel
+# Place this file in the SAME folder as index.html (your site's document root,
+# e.g. /home/<domain>/public_html). It makes deep links like
+# /story/lantern-in-the-pines work by serving index.html for any path that
+# isn't a real file, so the app's client-side router can take over.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # If the requested path is a real file or directory, serve it as-is.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise, hand the request to the single-page app entry point.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Cache Expo's content-hashed assets aggressively (filenames change on rebuild).
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Never cache the HTML entry point, so new deploys are picked up immediately.
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

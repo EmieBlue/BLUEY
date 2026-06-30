@@ -1,14 +1,11 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * Returns the active color palette for the currently-selected theme
+ * (Navy & Gold / Emerald & White / Warm). Driven by AppThemeProvider so the
+ * whole app recolors from one place.
  */
 
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeMode } from '@/context/theme';
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
-
-  return Colors[theme];
+  return useThemeMode().palette;
 }
