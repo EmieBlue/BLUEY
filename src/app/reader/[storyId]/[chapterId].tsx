@@ -12,6 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { APP_NAME } from '@/config/app';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useAppState } from '@/context/app-state';
+import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
@@ -27,7 +28,8 @@ export default function ReaderScreen() {
   }>();
   const theme = useTheme();
   const router = useRouter();
-  const { isSubscribed, setProgress } = useAppState();
+  const { hasPurchased, setProgress } = useAppState();
+  const { user } = useAuth();
   const { loading, getChapter, getAdjacentChapter } = useStoriesData();
 
   const [speaking, setSpeaking] = useState(false);
@@ -39,7 +41,9 @@ export default function ReaderScreen() {
   const autoStartedRef = useRef<string | null>(null);
 
   const result = getChapter(storyId, chapterId);
-  const locked = result ? result.chapter.isPremium && !isSubscribed : false;
+  const isOwner = !!user && result?.story.ownerId === user.id;
+  const hasAccess = result ? hasPurchased(result.story.id) || isOwner : false;
+  const locked = result ? result.chapter.isPremium && !hasAccess : false;
 
   // Load available (English) voices for the picker (web loads them asynchronously).
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function ReaderScreen() {
       return;
     }
     const nx = getAdjacentChapter(result.story.id, result.chapter.id, 'next');
-    if (autoAdvance && nx && !(nx.isPremium && !isSubscribed)) {
+    if (autoAdvance && nx && !(nx.isPremium && !hasAccess)) {
       router.replace({
         pathname: '/reader/[storyId]/[chapterId]',
         params: { storyId: result.story.id, chapterId: nx.id, autoplay: '1', autoadvance: '1' },
@@ -156,8 +160,8 @@ export default function ReaderScreen() {
 
   const goToChapter = (target: Chapter | undefined) => {
     if (!target) return;
-    if (target.isPremium && !isSubscribed) {
-      router.push('/paywall');
+    if (target.isPremium && !hasAccess) {
+      router.push({ pathname: '/paywall', params: { storyId: story.id } });
       return;
     }
     router.replace({
@@ -185,7 +189,7 @@ export default function ReaderScreen() {
 
       {locked ? (
         <LockedView
-          onSubscribe={() => router.push('/paywall')}
+          onUnlock={() => router.push({ pathname: '/paywall', params: { storyId: story.id } })}
           chapterTitle={chapter.title}
         />
       ) : (
@@ -387,10 +391,10 @@ function NavButton({
 
 function LockedView({
   chapterTitle,
-  onSubscribe,
+  onUnlock,
 }: {
   chapterTitle: string;
-  onSubscribe: () => void;
+  onUnlock: () => void;
 }) {
   const theme = useTheme();
   return (
@@ -398,16 +402,16 @@ function LockedView({
       <Ionicons name="lock-closed" size={48} color="#F5A623" />
       <ThemedText style={styles.lockedTitle}>“{chapterTitle}” is premium</ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.lockedText}>
-        Subscribe to unlock this chapter and every other premium chapter on {APP_NAME}.
+        Buy this book once to unlock this chapter and every other premium chapter on {APP_NAME}.
       </ThemedText>
       <Pressable
-        onPress={onSubscribe}
+        onPress={onUnlock}
         style={({ pressed }) => [
           styles.lockedCta,
           { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
         ]}>
         <ThemedText style={[styles.lockedCtaText, { color: theme.accentOn }]}>
-          Unlock with Premium
+          Unlock this book
         </ThemedText>
       </Pressable>
     </View>

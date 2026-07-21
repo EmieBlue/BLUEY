@@ -12,14 +12,14 @@ export const APP_TAGLINE = 'Stories worth staying up for.';
  */
 export const SITE_URL = 'https://bluy-4az69d.netlify.app';
 
-export const PREMIUM_PLAN = {
-  name: 'Bluey Premium',
-  priceLabel: '$4.99',
-  period: 'month',
-  perks: [
-    'Unlock every premium chapter',
-    'New chapters the moment they drop',
-    'Support the authors you love',
-    'Read ad-free, everywhere',
-  ],
-};
+/**
+ * Buy-the-book pricing (v1): a reader pays once to unlock a whole book's premium
+ * chapters, forever. Flat price for every book; the amount actually charged lives
+ * in the `PAYSTACK_BOOK_AMOUNT` env var on the payment function (pesewas).
+ */
+export const BOOK_PRICE_LABEL = 'GH₵50';
+export const BOOK_PERKS = [
+  'Every chapter in this book, unlocked',
+  'Yours to keep — read it anytime',
+  'Support the author directly',
+];

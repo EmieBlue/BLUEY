@@ -22,7 +22,7 @@ export default function StoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const router = useRouter();
-  const { isSubscribed, isAuthor, isFollowing, toggleFollow, getProgressChapterId } = useAppState();
+  const { hasPurchased, isAuthor, isFollowing, toggleFollow, getProgressChapterId } = useAppState();
   const { loading, getStoryById, refresh } = useStoriesData();
   const { user } = useAuth();
   const [ownerBusy, setOwnerBusy] = useState(false);
@@ -45,8 +45,10 @@ export default function StoryDetailScreen() {
 
   const following = isFollowing(story.id);
   const progressChapterId = getProgressChapterId(story.id);
-  const showPremiumBanner = hasPremiumChapters(story) && !isSubscribed;
   const isOwner = isAuthor && !!user && story.ownerId === user.id;
+  // Premium chapters are readable if the reader bought this book (or owns it).
+  const hasAccess = hasPurchased(story.id) || isOwner;
+  const showPremiumBanner = hasPremiumChapters(story) && !hasAccess;
 
   const publishNow = async () => {
     if (story.chapters.length === 0) {
@@ -62,8 +64,8 @@ export default function StoryDetailScreen() {
   };
 
   const openChapter = (chapter: Chapter) => {
-    if (chapter.isPremium && !isSubscribed) {
-      router.push('/paywall');
+    if (chapter.isPremium && !hasAccess) {
+      router.push({ pathname: '/paywall', params: { storyId: story.id } });
       return;
     }
     router.push({
@@ -232,13 +234,13 @@ export default function StoryDetailScreen() {
           {/* Premium nudge */}
           {showPremiumBanner && (
             <Pressable
-              onPress={() => router.push('/paywall')}
+              onPress={() => router.push({ pathname: '/paywall', params: { storyId: story.id } })}
               style={[styles.premiumBanner, { backgroundColor: theme.backgroundElement }]}>
               <Ionicons name="sparkles" size={20} color="#F5A623" />
               <View style={{ flex: 1 }}>
                 <ThemedText type="smallBold">Some chapters are premium</ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Subscribe to unlock the full story.
+                  Buy the book once to unlock every chapter.
                 </ThemedText>
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
@@ -255,7 +257,7 @@ export default function StoryDetailScreen() {
                 <ChapterRow
                   key={chapter.id}
                   chapter={chapter}
-                  locked={chapter.isPremium && !isSubscribed}
+                  locked={chapter.isPremium && !hasAccess}
                   isCurrent={chapter.id === progressChapterId}
                   onPress={() => openChapter(chapter)}
                   onEdit={

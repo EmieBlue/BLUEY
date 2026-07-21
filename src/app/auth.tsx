@@ -76,7 +76,7 @@ export default function AuthScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.flex}>
           <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-            <BrandLogo size={88} style={styles.brand} />
+            <BrandLogo size={108} style={styles.brand} />
             <ThemedText style={styles.title}>
               {isSignup ? 'Create your account' : 'Welcome back'}
             </ThemedText>

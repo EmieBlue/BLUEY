@@ -38,20 +38,15 @@ async function go(url: string): Promise<void> {
   }
 }
 
-/** Open Stripe Checkout to subscribe to premium. */
-export async function startCheckout(user: { id: string; email?: string | null }): Promise<void> {
+/** Open Paystack checkout to buy (unlock) a single book. */
+export async function startCheckout(
+  user: { id: string; email?: string | null },
+  storyId: string,
+): Promise<void> {
   const url = await postForUrl('create-checkout', {
     userId: user.id,
     email: user.email ?? undefined,
-    origin: appOrigin(),
-  });
-  await go(url);
-}
-
-/** Open the Stripe Billing Portal to manage or cancel an existing subscription. */
-export async function openBillingPortal(user: { id: string }): Promise<void> {
-  const url = await postForUrl('manage-subscription', {
-    userId: user.id,
+    storyId,
     origin: appOrigin(),
   });
   await go(url);

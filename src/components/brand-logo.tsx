@@ -17,7 +17,7 @@ export function BrandLogo({
     <View
       style={[styles.badge, { width: size, height: size, borderRadius: size * 0.22 }, style]}>
       <Image
-        source={require('@/assets/images/bluey-logo.png')}
+        source={require('@/assets/images/bluey-logo-mark.png')}
         style={StyleSheet.absoluteFill}
         contentFit="contain"
       />
@@ -30,6 +30,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     // Matches the logo artwork's forest-green field so any letterboxing from
     // `contain` blends seamlessly with the image.
-    backgroundColor: '#053026',
+    backgroundColor: '#023025',
   },
 });

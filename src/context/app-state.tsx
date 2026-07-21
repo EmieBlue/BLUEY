@@ -14,7 +14,7 @@ import { useAuth } from '@/context/auth';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 /**
- * App-wide reader state: subscription status, followed stories, and reading
+ * App-wide reader state: purchased books, followed stories, and reading
  * progress.
  *
  * Two modes, transparently:
@@ -32,7 +32,8 @@ const STORAGE_KEY = 'bluy.appState.v1';
 type ProgressMap = Record<string, string>;
 
 interface PersistedState {
-  isSubscribed: boolean;
+  /** Books this reader has bought (unlocked forever). */
+  purchasedStoryIds: string[];
   /** Whether this account may write/publish stories. */
   isAuthor: boolean;
   followingIds: string[];
@@ -42,8 +43,8 @@ interface PersistedState {
 interface AppState extends PersistedState {
   /** False until state has loaded, so we don't flash the wrong UI. */
   hydrated: boolean;
-  subscribe: () => void;
-  unsubscribe: () => void;
+  hasPurchased: (storyId: string) => boolean;
+  purchaseBook: (storyId: string) => void;
   isFollowing: (storyId: string) => boolean;
   toggleFollow: (storyId: string) => void;
   getProgressChapterId: (storyId: string) => string | undefined;
@@ -51,7 +52,7 @@ interface AppState extends PersistedState {
 }
 
 const defaultPersisted: PersistedState = {
-  isSubscribed: false,
+  purchasedStoryIds: [],
   isAuthor: false,
   followingIds: [],
   progress: {},
@@ -61,17 +62,18 @@ const AppStateContext = createContext<AppState | null>(null);
 
 async function loadFromCloud(userId: string): Promise<PersistedState> {
   if (!supabase) return defaultPersisted;
-  const [profileRes, followsRes, progressRes] = await Promise.all([
-    supabase.from('profiles').select('is_subscribed, is_author').eq('id', userId).maybeSingle(),
+  const [profileRes, followsRes, progressRes, purchasesRes] = await Promise.all([
+    supabase.from('profiles').select('is_author').eq('id', userId).maybeSingle(),
     supabase.from('follows').select('story_id').eq('user_id', userId),
     supabase.from('reading_progress').select('story_id, chapter_id').eq('user_id', userId),
+    supabase.from('purchases').select('story_id').eq('user_id', userId),
   ]);
   const progress: ProgressMap = {};
   for (const row of progressRes.data ?? []) {
     progress[row.story_id] = row.chapter_id;
   }
   return {
-    isSubscribed: profileRes.data?.is_subscribed ?? false,
+    purchasedStoryIds: (purchasesRes.data ?? []).map((r) => r.story_id),
     isAuthor: profileRes.data?.is_author ?? false,
     followingIds: (followsRes.data ?? []).map((r) => r.story_id),
     progress,
@@ -119,14 +121,16 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     };
   }, [initializing, cloud, userId]);
 
-  // After Stripe Checkout (web), we land back on `/?sub=success`. The webhook
-  // flips is_subscribed server-side, but it can lag a second or two — so poll the
-  // profile a few times until it shows premium, then clean the URL.
+  // After Paystack Checkout (web), we land back on `/?purchase=success&story=<id>`.
+  // The webhook records the purchase server-side, but it can lag a second or two —
+  // so poll a few times until this book shows as owned, then clean the URL.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    if (!window.location.search.includes('sub=success')) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('purchase') !== 'success') return;
     if (!cloud || !userId) return;
 
+    const boughtStoryId = params.get('story');
     let active = true;
     let tries = 0;
     const clearParam = () =>
@@ -138,14 +142,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         const data = await loadFromCloud(userId);
         if (!active) return;
         setState(data);
-        if (data.isSubscribed) {
+        if (!boughtStoryId || data.purchasedStoryIds.includes(boughtStoryId)) {
           clearParam();
           return;
         }
       } catch {
         // ignore and retry
       }
-      if (++tries >= 5) {
+      if (++tries >= 6) {
         clearParam();
         return;
       }
@@ -166,21 +170,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
   }, [state, hydrated, cloud]);
 
-  const setSubscribed = useCallback(
-    (value: boolean) => {
-      setState((s) => ({ ...s, isSubscribed: value }));
-      if (cloud && supabase && userId) {
-        supabase
-          .from('profiles')
-          .upsert({ id: userId, is_subscribed: value })
-          .then(() => {});
-      }
-    },
-    [cloud, userId],
+  const hasPurchased = useCallback(
+    (storyId: string) => state.purchasedStoryIds.includes(storyId),
+    [state.purchasedStoryIds],
   );
 
-  const subscribe = useCallback(() => setSubscribed(true), [setSubscribed]);
-  const unsubscribe = useCallback(() => setSubscribed(false), [setSubscribed]);
+  // Demo/local mode only: unlock a book on-device. In cloud mode the purchase is
+  // recorded by the Paystack webhook after payment, then loaded via loadFromCloud.
+  const purchaseBook = useCallback((storyId: string) => {
+    setState((s) =>
+      s.purchasedStoryIds.includes(storyId)
+        ? s
+        : { ...s, purchasedStoryIds: [...s.purchasedStoryIds, storyId] },
+    );
+  }, []);
 
   const isFollowing = useCallback(
     (storyId: string) => state.followingIds.includes(storyId),
@@ -239,14 +242,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       hydrated,
-      subscribe,
-      unsubscribe,
+      hasPurchased,
+      purchaseBook,
       isFollowing,
       toggleFollow,
       getProgressChapterId,
       setProgress,
     }),
-    [state, hydrated, subscribe, unsubscribe, isFollowing, toggleFollow, getProgressChapterId, setProgress],
+    [state, hydrated, hasPurchased, purchaseBook, isFollowing, toggleFollow, getProgressChapterId, setProgress],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

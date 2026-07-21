@@ -17,7 +17,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const HTML_PATH = 'dist/index.html';
 const CONFIG_PATH = 'src/config/app.ts';
 const MARKER = '<!-- bluey-head -->';
-const THEME_COLOR = '#053026';
+const THEME_COLOR = '#023025';
 
 function grab(source, name) {
   const m = source.match(new RegExp(`export const ${name}\\s*=\\s*['"\`]([^'"\`]+)['"\`]`));

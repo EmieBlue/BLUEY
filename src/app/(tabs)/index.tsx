@@ -47,7 +47,7 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <BrandLogo size={56} />
+            <BrandLogo size={84} />
             <ThemedText type="small" themeColor="textSecondary">
               {APP_TAGLINE}
             </ThemedText>
@@ -72,7 +72,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.section}>
-            <SectionHeader title="Free to start" subtitle="Begin reading, no subscription needed" />
+            <SectionHeader title="Free to start" subtitle="Begin reading for free" />
             <Shelf stories={freeToStart} />
           </View>
         </ScrollView>

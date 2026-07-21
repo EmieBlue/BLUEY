@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LoadingView } from '@/components/loading-view';
@@ -8,19 +8,17 @@ import { SectionHeader } from '@/components/section-header';
 import { StoryCover } from '@/components/story-cover';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { PREMIUM_PLAN } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAppState } from '@/context/app-state';
 import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import type { Story } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
-import { openBillingPortal } from '@/lib/checkout';
 
 export default function LibraryScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { isSubscribed, isAuthor, unsubscribe, followingIds, progress } = useAppState();
+  const { isAuthor, followingIds, progress } = useAppState();
   const { user, configured, signOut } = useAuth();
   const { loading, stories, getStoryById } = useStoriesData();
 
@@ -38,24 +36,6 @@ export default function LibraryScreen() {
   const reading = Object.keys(progress)
     .map((id) => getStoryById(id))
     .filter((s): s is Story => Boolean(s));
-
-  const manageSubscription = async () => {
-    // Local demo (no Supabase) → just toggle off on-device.
-    if (!configured || !user) {
-      unsubscribe();
-      return;
-    }
-    try {
-      await openBillingPortal({ id: user.id });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Could not open the billing portal.';
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Manage subscription', msg);
-      }
-    }
-  };
 
   return (
     <ThemedView style={styles.container}>
@@ -106,38 +86,6 @@ export default function LibraryScreen() {
               <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
             </Pressable>
           ) : null}
-
-          {/* Subscription status — the monetization surface. */}
-          {isSubscribed ? (
-            <View style={[styles.subCard, { backgroundColor: theme.backgroundElement }]}>
-              <View style={styles.subRow}>
-                <Ionicons name="checkmark-circle" size={22} color="#3BA55D" />
-                <ThemedText type="smallBold">{PREMIUM_PLAN.name} · Active</ThemedText>
-              </View>
-              <ThemedText type="small" themeColor="textSecondary">
-                Thanks for supporting the authors. You have access to everything.
-              </ThemedText>
-              <Pressable onPress={manageSubscription} hitSlop={8}>
-                <ThemedText type="small" themeColor="textSecondary" style={styles.cancelLink}>
-                  Manage / cancel
-                </ThemedText>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => router.push('/paywall')}
-              style={[styles.subCardCta, { backgroundColor: theme.accent }]}>
-              <View style={styles.subRow}>
-                <Ionicons name="sparkles" size={20} color={theme.accentOn} />
-                <ThemedText style={[styles.ctaTitle, { color: theme.accentOn }]}>
-                  Go {PREMIUM_PLAN.name}
-                </ThemedText>
-              </View>
-              <ThemedText type="small" style={{ color: theme.accentOn, opacity: 0.85 }}>
-                Unlock every premium chapter for {PREMIUM_PLAN.priceLabel}/{PREMIUM_PLAN.period}.
-              </ThemedText>
-            </Pressable>
-          )}
 
           {isAuthor && (
             <View style={styles.section}>

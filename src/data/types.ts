@@ -45,7 +45,7 @@ export interface Chapter {
   /** Estimated reading time in minutes, shown to readers. */
   readingMinutes: number;
   /**
-   * Premium chapters require an active subscription to read.
+   * Premium chapters require buying the book to read.
    * Free chapters are readable by anyone (used as a "taste" to convert readers).
    */
   isPremium: boolean;

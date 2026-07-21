@@ -154,7 +154,7 @@ export function ChapterCanvas({
               color={value.isPremium ? '#F5A623' : theme.textSecondary}
             />
             <ThemedText type="small" themeColor={value.isPremium ? 'text' : 'textSecondary'}>
-              {value.isPremium ? 'Premium (subscribers only)' : 'Free to read'}
+              {value.isPremium ? 'Premium (requires purchase)' : 'Free to read'}
             </ThemedText>
           </Pressable>
 

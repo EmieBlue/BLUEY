@@ -1,8 +1,7 @@
-// Creates a Stripe Checkout Session for a Bluey Premium subscription and returns
-// its URL. The app redirects the user there; card details never touch our code.
-import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Starts a one-time Paystack payment to unlock a single book ("buy the book")
+// and returns the hosted checkout URL. The app redirects the user there; card /
+// mobile-money details never touch our code. On success the webhook records the
+// purchase (which book this reader now owns).
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -17,26 +16,59 @@ export async function handler(event) {
   }
 
   try {
-    const { userId, email, origin } = JSON.parse(event.body || '{}');
-    if (!userId) {
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Missing userId' }) };
+    const { userId, email, storyId, origin } = JSON.parse(event.body || '{}');
+    if (!userId || !storyId) {
+      return {
+        statusCode: 400,
+        headers: CORS,
+        body: JSON.stringify({ error: 'Missing userId or storyId' }),
+      };
+    }
+    // Paystack requires an email to create the customer + charge.
+    if (!email) {
+      return {
+        statusCode: 400,
+        headers: CORS,
+        body: JSON.stringify({ error: 'An email is required to buy a book. Please sign in first.' }),
+      };
+    }
+
+    const amount = Number(process.env.PAYSTACK_BOOK_AMOUNT); // pesewas, e.g. 5000 = GH₵50
+    if (!amount) {
+      return {
+        statusCode: 502,
+        headers: CORS,
+        body: JSON.stringify({ error: 'Book price is not configured.' }),
+      };
     }
 
     const base = origin || process.env.SITE_URL || '';
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-      client_reference_id: userId, // ties the payment back to the Supabase user
-      customer_email: email || undefined,
-      allow_promotion_codes: true,
-      success_url: `${base}/?sub=success`,
-      cancel_url: `${base}/paywall`,
+    const res = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        amount, // one-time charge — no `plan`, so nothing recurs
+        metadata: { userId, storyId }, // ties the payment to the reader + the book
+        callback_url: `${base}/?purchase=success&story=${encodeURIComponent(storyId)}`,
+      }),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.status || !data.data?.authorization_url) {
+      return {
+        statusCode: 502,
+        headers: CORS,
+        body: JSON.stringify({ error: data.message || 'Could not start checkout.' }),
+      };
+    }
 
     return {
       statusCode: 200,
       headers: { ...CORS, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: session.url }),
+      body: JSON.stringify({ url: data.data.authorization_url }),
     };
   } catch (e) {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: e.message }) };

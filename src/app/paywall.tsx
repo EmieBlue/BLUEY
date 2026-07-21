@@ -1,34 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { PREMIUM_PLAN } from '@/config/app';
+import { BOOK_PERKS, BOOK_PRICE_LABEL } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAppState } from '@/context/app-state';
 import { useAuth } from '@/context/auth';
+import { useStoriesData } from '@/context/stories';
 import { useTheme } from '@/hooks/use-theme';
 import { startCheckout } from '@/lib/checkout';
 
 export default function PaywallScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { subscribe } = useAppState();
+  const { storyId } = useLocalSearchParams<{ storyId?: string }>();
+  const { purchaseBook } = useAppState();
+  const { getStoryById } = useStoriesData();
   const { user, configured } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onSubscribe = async () => {
-    // No Supabase/Stripe wired up (local demo) → just unlock locally.
+  const story = storyId ? getStoryById(storyId) : undefined;
+  const bookTitle = story?.title ?? 'this book';
+
+  const onBuy = async () => {
+    if (!storyId) {
+      setError('Something went wrong — please reopen the book.');
+      return;
+    }
+    // No Supabase/Paystack wired up (local demo) → just unlock locally.
     if (!configured) {
-      subscribe();
+      purchaseBook(storyId);
       router.back();
       return;
     }
-    // A subscription is tied to an account, so sign in first.
+    // A purchase is tied to an account, so sign in first.
     if (!user) {
       router.replace('/auth');
       return;
@@ -36,7 +46,7 @@ export default function PaywallScreen() {
     setBusy(true);
     setError(null);
     try {
-      await startCheckout({ id: user.id, email: user.email });
+      await startCheckout({ id: user.id, email: user.email }, storyId);
       // On web this navigates away; on native the browser opens over us.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start checkout.');
@@ -56,13 +66,13 @@ export default function PaywallScreen() {
 
         <View style={styles.body}>
           <Ionicons name="sparkles" size={44} color="#F5A623" />
-          <ThemedText style={styles.title}>{PREMIUM_PLAN.name}</ThemedText>
+          <ThemedText style={styles.title}>Unlock {bookTitle}</ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-            Everything, unlocked. Cancel anytime.
+            One payment. Yours to read forever.
           </ThemedText>
 
           <View style={styles.perks}>
-            {PREMIUM_PLAN.perks.map((perk) => (
+            {BOOK_PERKS.map((perk) => (
               <View key={perk} style={styles.perkRow}>
                 <Ionicons name="checkmark-circle" size={22} color="#3BA55D" />
                 <ThemedText style={styles.perkText}>{perk}</ThemedText>
@@ -78,7 +88,7 @@ export default function PaywallScreen() {
             </ThemedText>
           ) : null}
           <Pressable
-            onPress={onSubscribe}
+            onPress={onBuy}
             disabled={busy}
             style={({ pressed }) => [
               styles.cta,
@@ -88,12 +98,12 @@ export default function PaywallScreen() {
               <ActivityIndicator color={theme.accentOn} />
             ) : (
               <ThemedText style={[styles.ctaText, { color: theme.accentOn }]}>
-                Subscribe · {PREMIUM_PLAN.priceLabel}/{PREMIUM_PLAN.period}
+                Unlock · {BOOK_PRICE_LABEL}
               </ThemedText>
             )}
           </Pressable>
           <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
-            Secure payment by Stripe. Cancel anytime.
+            Secure payment by Paystack · card or mobile money.
           </ThemedText>
         </View>
       </SafeAreaView>
@@ -111,7 +121,7 @@ const styles = StyleSheet.create({
   },
   closeRow: { paddingVertical: Spacing.three, alignItems: 'flex-end' },
   body: { flex: 1, justifyContent: 'center', gap: Spacing.two },
-  title: { fontSize: 36, fontWeight: '800', letterSpacing: -0.5 },
+  title: { fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { fontSize: 16, marginBottom: Spacing.three },
   perks: { gap: Spacing.three, marginTop: Spacing.two },
   perkRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
