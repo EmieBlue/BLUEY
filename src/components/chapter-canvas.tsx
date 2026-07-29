@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import {
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { NaturalImage } from '@/components/natural-image';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -96,7 +96,7 @@ export function ChapterCanvas({
           <View style={styles.mediaBar}>
             {value.imageUrl ? (
               <View style={styles.thumbWrap}>
-                <Image source={{ uri: value.imageUrl }} style={styles.thumb} contentFit="cover" />
+                <NaturalImage uri={value.imageUrl} style={styles.thumb} />
                 <Pressable onPress={() => onChange({ imageUrl: undefined })} hitSlop={6}>
                   <ThemedText type="small" themeColor="accent">
                     Remove image
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   thumbWrap: { gap: Spacing.two, alignItems: 'flex-start' },
-  thumb: { width: '100%', height: 180, borderRadius: 12 },
+  thumb: { maxWidth: 260 },
   videoInput: {
     borderRadius: 12,
     paddingHorizontal: Spacing.three,

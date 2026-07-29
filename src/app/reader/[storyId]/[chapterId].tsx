@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { createElement, useEffect, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CommentsSection } from '@/components/comments-section';
 import { LoadingView } from '@/components/loading-view';
+import { NaturalImage } from '@/components/natural-image';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_NAME } from '@/config/app';
@@ -291,12 +292,7 @@ export default function ReaderScreen() {
             </View>
 
             {chapter.imageUrl ? (
-              <Image
-                source={{ uri: chapter.imageUrl }}
-                style={styles.chapterImage}
-                contentFit="cover"
-                transition={150}
-              />
+              <NaturalImage uri={chapter.imageUrl} style={styles.chapterImage} />
             ) : null}
             {chapter.videoUrl ? <ChapterVideo url={chapter.videoUrl} /> : null}
 
@@ -322,6 +318,8 @@ export default function ReaderScreen() {
                 onPress={() => goToChapter(next)}
               />
             </View>
+
+            <CommentsSection storyId={story.id} chapterId={chapter.id} canModerate={isOwner} />
           </View>
         </ScrollView>
       )}
@@ -473,7 +471,7 @@ const styles = StyleSheet.create({
   speedChip: { paddingHorizontal: Spacing.three, paddingVertical: 6, borderRadius: 999, maxWidth: 220 },
   voiceGroup: { gap: Spacing.two },
   voiceWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chapterImage: { width: '100%', height: 220, borderRadius: 12, marginBottom: Spacing.four },
+  chapterImage: { marginBottom: Spacing.four },
   videoBtn: {
     flexDirection: 'row',
     alignItems: 'center',

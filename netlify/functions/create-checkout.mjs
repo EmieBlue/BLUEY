@@ -33,7 +33,7 @@ export async function handler(event) {
       };
     }
 
-    const amount = Number(process.env.PAYSTACK_BOOK_AMOUNT); // pesewas, e.g. 5000 = GH₵50
+    const amount = Number(process.env.PAYSTACK_BOOK_AMOUNT); // pesewas, e.g. 6000 = GH₵60
     if (!amount) {
       return {
         statusCode: 502,

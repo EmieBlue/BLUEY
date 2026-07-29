@@ -17,7 +17,7 @@ export const SITE_URL = 'https://bluy-4az69d.netlify.app';
  * chapters, forever. Flat price for every book; the amount actually charged lives
  * in the `PAYSTACK_BOOK_AMOUNT` env var on the payment function (pesewas).
  */
-export const BOOK_PRICE_LABEL = 'GH₵50';
+export const BOOK_PRICE_LABEL = 'GH₵60';
 export const BOOK_PERKS = [
   'Every chapter in this book, unlocked',
   'Yours to keep — read it anytime',
