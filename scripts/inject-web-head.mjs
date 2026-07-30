@@ -50,6 +50,11 @@ const head = `    ${MARKER}
     <meta name="description" content="${tagline}" />
     <meta name="theme-color" content="${THEME_COLOR}" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="${appName}" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="${appName}" />
     <meta property="og:title" content="${appName}" />
@@ -62,6 +67,7 @@ const head = `    ${MARKER}
     <meta name="twitter:title" content="${appName}" />
     <meta name="twitter:description" content="${tagline}" />
     <meta name="twitter:image" content="${ogImage}" />
+    <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})});}</script>
   </head>`;
 
 if (!html.includes('</head>')) throw new Error(`No </head> found in ${HTML_PATH}`);
