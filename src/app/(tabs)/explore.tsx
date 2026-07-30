@@ -14,6 +14,7 @@ import { LoadingView } from '@/components/loading-view';
 import { GridCard } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WriteFab } from '@/components/write-fab';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useStoriesData } from '@/context/stories';
 import { ALL_GENRES, type Genre } from '@/data/types';
@@ -90,6 +91,7 @@ export default function ExploreScreen() {
             ))
           )}
         </ScrollView>
+        <WriteFab />
       </SafeAreaView>
     </ThemedView>
   );

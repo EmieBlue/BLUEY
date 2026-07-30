@@ -6,6 +6,7 @@ import { SectionHeader } from '@/components/section-header';
 import { FeaturedCard, ShelfCard } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WriteFab } from '@/components/write-fab';
 import { APP_TAGLINE } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { LoadingView } from '@/components/loading-view';
@@ -76,6 +77,7 @@ export default function HomeScreen() {
             <Shelf stories={freeToStart} />
           </View>
         </ScrollView>
+        <WriteFab />
       </SafeAreaView>
     </ThemedView>
   );
