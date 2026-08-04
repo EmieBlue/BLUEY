@@ -25,7 +25,7 @@ type Mode = 'signin' | 'signup';
 export default function AuthScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { signIn, signUp, configured } = useAuth();
+  const { signIn, signUp, resetPassword, configured } = useAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
@@ -61,6 +61,23 @@ export default function AuthScreen() {
     }
     // Signed in: the session is now set, close the modal.
     router.back();
+  };
+
+  const onForgot = async () => {
+    setError(null);
+    setInfo(null);
+    if (!email.trim()) {
+      setError('Enter your email above first, then tap “Forgot password?”.');
+      return;
+    }
+    setBusy(true);
+    const res = await resetPassword(email.trim());
+    setBusy(false);
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
+    setInfo('Check your email for a link to reset your password.');
   };
 
   return (
@@ -121,6 +138,14 @@ export default function AuthScreen() {
               secureTextEntry
               autoCapitalize="none"
             />
+
+            {!isSignup && (
+              <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotRow}>
+                <ThemedText type="small" themeColor="accent">
+                  Forgot password?
+                </ThemedText>
+              </Pressable>
+            )}
 
             {error && (
               <ThemedText type="small" style={[styles.message, { color: '#C0392B' }]}>
@@ -241,4 +266,5 @@ const styles = StyleSheet.create({
   },
   ctaText: { fontSize: 17, fontWeight: '800' },
   switchRow: { alignItems: 'center', paddingVertical: Spacing.two },
+  forgotRow: { alignSelf: 'flex-end', marginTop: -Spacing.one },
 });

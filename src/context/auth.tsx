@@ -7,7 +7,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { Platform } from 'react-native';
 
+import { SITE_URL } from '@/config/app';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export interface AuthResult {
@@ -27,6 +29,10 @@ interface AuthState {
   signUp: (email: string, password: string, displayName?: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
+  /** Send a password-reset email with a link back to /reset-password. */
+  resetPassword: (email: string) => Promise<AuthResult>;
+  /** Set a new password (used on the reset-password screen after the email link). */
+  updatePassword: (password: string) => Promise<AuthResult>;
 }
 
 const NOT_CONFIGURED: AuthResult = {
@@ -91,6 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         if (!supabase) return;
         await supabase.auth.signOut();
+      },
+
+      resetPassword: async (email) => {
+        if (!supabase) return NOT_CONFIGURED;
+        const base =
+          Platform.OS === 'web' && typeof window !== 'undefined'
+            ? window.location.origin
+            : SITE_URL;
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${base}/reset-password`,
+        });
+        return error ? { error: error.message } : {};
+      },
+
+      updatePassword: async (password) => {
+        if (!supabase) return NOT_CONFIGURED;
+        const { error } = await supabase.auth.updateUser({ password });
+        return error ? { error: error.message } : {};
       },
     }),
     [initializing, session],
