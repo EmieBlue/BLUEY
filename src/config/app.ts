@@ -10,7 +10,7 @@ export const APP_TAGLINE = 'Stories worth staying up for.';
  * functions from native (where there's no `window.location`) and as the redirect
  * target after Stripe Checkout.
  */
-export const SITE_URL = 'https://bluy-4az69d.netlify.app';
+export const SITE_URL = 'https://blueyclub.com';
 
 /**
  * Buy-the-book pricing (v1): a reader pays once to unlock a whole book's premium
