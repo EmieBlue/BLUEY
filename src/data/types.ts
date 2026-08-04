@@ -83,6 +83,8 @@ export interface Story {
   coverImageUrl?: string;
   /** 'published' (public) or 'draft' (visible only to the owner). */
   status?: 'draft' | 'published';
+  /** When the story was created (ISO), shown as the "Published" date. */
+  createdAt?: string;
   // Wattpad-style story-info fields.
   language?: string;
   storyType?: string;

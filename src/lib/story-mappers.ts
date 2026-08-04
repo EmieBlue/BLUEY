@@ -49,6 +49,7 @@ export interface DbStory {
   is_mature: boolean | null;
   main_characters: string[] | null;
   target_audience: string | null;
+  created_at: string | null;
   // Supabase returns a to-one embed as an object, but type it permissively.
   author: DbAuthor | DbAuthor[] | null;
   chapters: DbChapter[] | null;
@@ -90,6 +91,7 @@ export function mapStory(row: DbStory): Story {
     ownerId: row.owner_id ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
     status: row.status === 'draft' ? 'draft' : 'published',
+    createdAt: row.created_at ?? undefined,
     language: row.language ?? undefined,
     storyType: row.story_type ?? undefined,
     tags: row.tags ?? [],

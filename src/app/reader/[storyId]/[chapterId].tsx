@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { createElement, useEffect, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentsSection } from '@/components/comments-section';
 import { LoadingView } from '@/components/loading-view';
 import { NaturalImage } from '@/components/natural-image';
+import { StoryCover } from '@/components/story-cover';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_NAME } from '@/config/app';
@@ -19,6 +20,10 @@ import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
 
 const READING_WIDTH = 720;
+
+const countWords = (paras: string[]) => paras.join(' ').trim().split(/\s+/).filter(Boolean).length;
+const fmtDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null;
 
 export default function ReaderScreen() {
   const { storyId, chapterId, autoplay, autoadvance } = useLocalSearchParams<{
@@ -39,6 +44,7 @@ export default function ReaderScreen() {
   const [voices, setVoices] = useState<Speech.Voice[]>([]);
   const [autoAdvance, setAutoAdvance] = useState(autoadvance === '1');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const autoStartedRef = useRef<string | null>(null);
 
   const result = getChapter(storyId, chapterId);
@@ -181,9 +187,18 @@ export default function ReaderScreen() {
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
           </Pressable>
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.headerTitle}>
-            {story.title}
-          </ThemedText>
+          {story.chapters.length > 1 ? (
+            <Pressable onPress={() => setMenuOpen(true)} style={styles.headerTitleBtn} hitSlop={8}>
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.headerTitleText}>
+                {story.title}
+              </ThemedText>
+              <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+            </Pressable>
+          ) : (
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.headerTitle}>
+              {story.title}
+            </ThemedText>
+          )}
           <View style={{ width: 26 }} />
         </View>
       </SafeAreaView>
@@ -196,15 +211,29 @@ export default function ReaderScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.reading}>
-            {story.format === 'serial' && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Chapter {chapter.order}
+            <View style={styles.chapterHeader}>
+              <StoryCover story={story} width={96} height={138} showTitle={false} radius={10} />
+              {story.format === 'serial' && (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.chapterKicker}>
+                  Chapter {chapter.order}
+                </ThemedText>
+              )}
+              <ThemedText style={styles.chapterTitle}>{chapter.title}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.chapterMeta}>
+                {[
+                  'Published',
+                  fmtDate(story.createdAt),
+                  `${countWords(chapter.paragraphs).toLocaleString()} words`,
+                  `${chapter.readingMinutes} min read`,
+                ]
+                  .filter(Boolean)
+                  .join('  ·  ')}
               </ThemedText>
-            )}
-            <ThemedText style={styles.chapterTitle}>{chapter.title}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.byline}>
-              {story.author.name} · {chapter.readingMinutes} min read
-            </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                by {story.author.name}
+              </ThemedText>
+            </View>
+            <View style={[styles.divider, { backgroundColor: theme.backgroundSelected }]} />
 
             <View style={[styles.audioPanel, { borderColor: theme.backgroundElement }]}>
               <View style={styles.audioTopRow}>
@@ -323,6 +352,62 @@ export default function ReaderScreen() {
           </View>
         </ScrollView>
       )}
+
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
+          <Pressable
+            style={[
+              styles.menuPanel,
+              { backgroundColor: theme.background, borderColor: theme.backgroundSelected },
+            ]}
+            onPress={() => {}}>
+            <ThemedText style={styles.menuTitle}>
+              {story.chapters.length} {story.chapters.length === 1 ? 'part' : 'parts'}
+            </ThemedText>
+            <ScrollView style={styles.menuList}>
+              {story.chapters.map((c) => {
+                const isCurrent = c.id === chapter.id;
+                const chLocked = c.isPremium && !hasAccess;
+                return (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => {
+                      setMenuOpen(false);
+                      goToChapter(c);
+                    }}
+                    style={[
+                      styles.menuRow,
+                      {
+                        borderColor: theme.backgroundElement,
+                        backgroundColor: isCurrent ? theme.backgroundElement : 'transparent',
+                      },
+                    ]}>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText type="smallBold" numberOfLines={2}>
+                        {story.format === 'serial' ? `Chapter ${c.order}: ${c.title}` : c.title}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {c.readingMinutes} min read{chLocked ? ' · Premium' : ''}
+                      </ThemedText>
+                    </View>
+                    {isCurrent ? (
+                      <Ionicons name="checkmark-circle" size={20} color={theme.accent} />
+                    ) : chLocked ? (
+                      <Ionicons name="lock-closed" size={16} color="#F5A623" />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -431,6 +516,15 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
   },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: Spacing.two },
+  headerTitleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginHorizontal: Spacing.two,
+  },
+  headerTitleText: { flexShrink: 1 },
   scroll: { alignItems: 'center', paddingBottom: Spacing.six },
   reading: {
     width: '100%',
@@ -438,12 +532,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
   },
+  chapterHeader: { alignItems: 'center', gap: Spacing.two, marginBottom: Spacing.three },
+  chapterKicker: { textTransform: 'uppercase', letterSpacing: 1, marginTop: Spacing.two },
   chapterTitle: {
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 28,
+    lineHeight: 36,
     fontWeight: '800',
-    marginTop: 4,
+    textAlign: 'center',
+    marginTop: Spacing.one,
   },
+  chapterMeta: { textAlign: 'center' },
+  divider: { height: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginBottom: Spacing.four },
   byline: { marginTop: Spacing.two, marginBottom: Spacing.three },
   listenBtn: {
     flexDirection: 'row',
@@ -485,8 +584,8 @@ const styles = StyleSheet.create({
   paragraph: {
     fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : Fonts?.serif,
     fontSize: 19,
-    lineHeight: 31,
-    marginBottom: Spacing.three,
+    lineHeight: 33,
+    marginBottom: 20,
   },
   navRow: {
     flexDirection: 'row',
@@ -521,4 +620,30 @@ const styles = StyleSheet.create({
     marginTop: Spacing.two,
   },
   lockedCtaText: { fontSize: 16, fontWeight: '800' },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    paddingTop: 64,
+    paddingHorizontal: Spacing.three,
+  },
+  menuPanel: {
+    width: '100%',
+    maxWidth: 460,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
+    gap: Spacing.two,
+  },
+  menuTitle: { fontSize: 16, fontWeight: '800', marginBottom: Spacing.one },
+  menuList: { maxHeight: 440 },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.two,
+    borderRadius: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
 });
