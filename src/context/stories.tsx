@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useAuth } from '@/context/auth';
 import {
   STORIES,
   getAdjacentChapter as adjacentChapter,
@@ -49,6 +50,10 @@ interface StoriesData {
 const StoriesContext = createContext<StoriesData | null>(null);
 
 export function StoriesProvider({ children }: { children: ReactNode }) {
+  // Re-fetch when the signed-in user changes: draft stories are only readable by
+  // their owner (RLS), so the list must reload once a session is established or
+  // the author's own drafts never appear.
+  const { user } = useAuth();
   // With no Supabase, use the local sample data immediately (demo mode).
   const [stories, setStories] = useState<Story[]>(isSupabaseConfigured ? [] : STORIES);
   const [loading, setLoading] = useState<boolean>(isSupabaseConfigured);
@@ -76,7 +81,7 @@ export function StoriesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, user?.id]);
 
   const value = useMemo<StoriesData>(
     () => ({
