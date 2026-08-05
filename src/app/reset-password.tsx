@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -25,6 +26,7 @@ export default function ResetPasswordScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [reveal, setReveal] = useState(false);
 
   const onSubmit = async () => {
     setError(null);
@@ -51,15 +53,25 @@ export default function ResetPasswordScreen() {
     value: string,
     onChangeText: (t: string) => void,
   ) => (
-    <TextInput
-      placeholder={placeholder}
-      placeholderTextColor={theme.textSecondary}
-      value={value}
-      onChangeText={onChangeText}
-      secureTextEntry
-      autoCapitalize="none"
-      style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
-    />
+    <View style={[styles.field, { backgroundColor: theme.backgroundElement }]}>
+      <Ionicons name="lock-closed-outline" size={18} color={theme.textSecondary} />
+      <TextInput
+        placeholder={placeholder}
+        placeholderTextColor={theme.textSecondary}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={!reveal}
+        autoCapitalize="none"
+        style={[styles.inputFlex, { color: theme.text }]}
+      />
+      <Pressable onPress={() => setReveal((r) => !r)} hitSlop={10}>
+        <Ionicons
+          name={reveal ? 'eye-off-outline' : 'eye-outline'}
+          size={20}
+          color={theme.textSecondary}
+        />
+      </Pressable>
+    </View>
   );
 
   return (
@@ -149,12 +161,15 @@ const styles = StyleSheet.create({
   brand: { alignSelf: 'center', marginBottom: Spacing.two },
   title: { fontSize: 28, fontWeight: '800' },
   subtitle: { fontSize: 15, marginBottom: Spacing.two },
-  input: {
-    borderRadius: 12,
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     height: 52,
-    fontSize: 16,
+    borderRadius: 12,
   },
+  inputFlex: { flex: 1, fontSize: 16, height: '100%' },
   cta: {
     height: 54,
     borderRadius: 14,
