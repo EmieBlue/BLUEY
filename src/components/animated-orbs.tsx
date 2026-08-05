@@ -27,7 +27,16 @@ const ORBS: OrbSpec[] = [
   { size: 110, color: 'rgba(255,255,255,0.1)', left: '38%', top: '74%', drift: 28, duration: 5000, delay: 600 },
 ];
 
-function Orb({ size, color, left, top, drift, duration, delay }: OrbSpec) {
+function Orb({
+  size,
+  color,
+  left,
+  top,
+  drift,
+  duration,
+  delay,
+  subtle,
+}: OrbSpec & { subtle?: boolean }) {
   const t = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -45,7 +54,10 @@ function Orb({ size, color, left, top, drift, duration, delay }: OrbSpec) {
   const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [drift, -drift] });
   const translateX = t.interpolate({ inputRange: [0, 1], outputRange: [-drift * 0.4, drift * 0.4] });
   const scale = t.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.12] });
-  const opacity = t.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
+  const opacity = t.interpolate({
+    inputRange: [0, 1],
+    outputRange: subtle ? [0.12, 0.35] : [0.55, 1],
+  });
 
   return (
     <Animated.View
@@ -64,11 +76,11 @@ function Orb({ size, color, left, top, drift, duration, delay }: OrbSpec) {
   );
 }
 
-export function AnimatedOrbs() {
+export function AnimatedOrbs({ subtle }: { subtle?: boolean }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {ORBS.map((o, i) => (
-        <Orb key={i} {...o} />
+        <Orb key={i} {...o} subtle={subtle} />
       ))}
     </View>
   );

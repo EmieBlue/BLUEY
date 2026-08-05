@@ -206,6 +206,7 @@ export default function AuthScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AnimatedOrbs subtle />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}>

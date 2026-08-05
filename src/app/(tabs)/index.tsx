@@ -1,6 +1,7 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedOrbs } from '@/components/animated-orbs';
 import { BrandLogo } from '@/components/brand-logo';
 import { SectionHeader } from '@/components/section-header';
 import { FeaturedCard, ShelfCard } from '@/components/story-card';
@@ -45,6 +46,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <AnimatedOrbs subtle />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
