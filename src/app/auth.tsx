@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedOrbs } from '@/components/animated-orbs';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -91,6 +92,7 @@ export default function AuthScreen() {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.hero, wide ? styles.heroWide : styles.heroNarrow]}>
+      <AnimatedOrbs />
       <BrandLogo size={wide ? 104 : 72} />
       <ThemedText style={[styles.welcome, { fontSize: wide ? 52 : 34, lineHeight: wide ? 56 : 38 }]}>
         Welcome{'\n'}Back
@@ -258,7 +260,7 @@ const styles = StyleSheet.create({
   rowWide: { flex: 1, flexDirection: 'row' },
   colNarrow: { flex: 1, flexDirection: 'column' },
 
-  hero: { alignItems: 'flex-start', justifyContent: 'center', gap: Spacing.three },
+  hero: { alignItems: 'flex-start', justifyContent: 'center', gap: Spacing.three, overflow: 'hidden' },
   heroWide: { flex: 0.9, paddingHorizontal: Spacing.six, paddingVertical: Spacing.five },
   heroNarrow: {
     paddingTop: Spacing.six,
