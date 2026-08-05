@@ -37,7 +37,7 @@ const ThemeContext = createContext<ThemeMode | null>(null);
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const scheme = useColorScheme();
-  const [themeKey, setThemeKeyState] = useState<ThemeKey>('navy');
+  const [themeKey, setThemeKeyState] = useState<ThemeKey>('emerald');
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((v) => {
