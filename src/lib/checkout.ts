@@ -4,12 +4,12 @@ import { Platform } from 'react-native';
 import { SITE_URL } from '@/config/app';
 
 /**
- * Talks to our Netlify payment functions and redirects the user to the Stripe
- * pages they return. On web we navigate the tab; on native we open an in-app
- * browser.
+ * Talks to our hosted payment functions (Cloudflare Pages Functions under /api)
+ * and redirects the user to the Paystack page they return. On web we navigate
+ * the tab; on native we open an in-app browser.
  */
 
-const FUNCTIONS_BASE = `${SITE_URL}/.netlify/functions`;
+const FUNCTIONS_BASE = `${SITE_URL}/api`;
 
 /** Where Stripe should send the user back to after Checkout / the portal. */
 function appOrigin(): string {

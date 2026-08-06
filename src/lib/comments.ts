@@ -4,12 +4,12 @@ import { SITE_URL } from '@/config/app';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Per-chapter comments. These go through our own Netlify function
- * (`/.netlify/functions/notes`), NOT straight to Supabase: ad-blockers / privacy
- * shields drop cross-origin writes to supabase.co, which broke posting with
- * "TypeError: Failed to fetch". A first-party same-origin call isn't blocked.
- * Reading is public; posting/deleting forward the user's session token so RLS is
- * still enforced server-side (see netlify/functions/notes.mjs).
+ * Per-chapter comments. These go through our own hosted function
+ * (`/api/notes`, a Cloudflare Pages Function), NOT straight to Supabase:
+ * ad-blockers / privacy shields drop cross-origin writes to supabase.co, which
+ * broke posting with "TypeError: Failed to fetch". A first-party same-origin
+ * call isn't blocked. Reading is public; posting/deleting forward the user's
+ * session token so RLS is still enforced server-side (see functions/api/notes.js).
  */
 
 export interface Comment {
@@ -48,7 +48,7 @@ function mapRow(r: CommentRow): Comment {
 function endpoint(): string {
   const base =
     Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : SITE_URL;
-  return `${base}/.netlify/functions/notes`;
+  return `${base}/api/notes`;
 }
 
 async function accessToken(): Promise<string | undefined> {
