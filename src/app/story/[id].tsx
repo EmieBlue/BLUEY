@@ -27,6 +27,10 @@ export default function StoryDetailScreen() {
   const { user } = useAuth();
   const [ownerBusy, setOwnerBusy] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
+  // Authors own their own books, so nothing is ever locked for them. This lets
+  // them flip into a reader's view to see the locked / paywall experience (and
+  // run a test purchase) on their own story.
+  const [previewAsReader, setPreviewAsReader] = useState(false);
 
   if (loading) return <LoadingView />;
 
@@ -46,8 +50,11 @@ export default function StoryDetailScreen() {
   const following = isFollowing(story.id);
   const progressChapterId = getProgressChapterId(story.id);
   const isOwner = isAuthor && !!user && story.ownerId === user.id;
-  // Premium chapters are readable if the reader bought this book (or owns it).
-  const hasAccess = hasPurchased(story.id) || isOwner;
+  // Premium chapters are readable if the reader bought this book (or owns it) —
+  // unless the author has turned on "preview as reader", which forces the locked
+  // view so they can see exactly what a buyer sees.
+  const owns = hasPurchased(story.id) || isOwner;
+  const hasAccess = owns && !previewAsReader;
   const showPremiumBanner = hasPremiumChapters(story) && !hasAccess;
 
   const publishNow = async () => {
@@ -191,6 +198,36 @@ export default function StoryDetailScreen() {
                   </ThemedText>
                 </Pressable>
               </View>
+              {hasPremiumChapters(story) && (
+                <Pressable
+                  onPress={() => setPreviewAsReader((v) => !v)}
+                  style={[
+                    styles.previewBtn,
+                    previewAsReader
+                      ? { backgroundColor: theme.accent }
+                      : { borderColor: theme.accent, borderWidth: 1.5 },
+                  ]}>
+                  <Ionicons
+                    name={previewAsReader ? 'eye-off-outline' : 'eye-outline'}
+                    size={18}
+                    color={previewAsReader ? theme.accentOn : theme.accent}
+                  />
+                  <ThemedText
+                    type="smallBold"
+                    style={{ color: previewAsReader ? theme.accentOn : theme.accent }}>
+                    {previewAsReader ? 'Exit reader preview' : 'Preview as reader'}
+                  </ThemedText>
+                </Pressable>
+              )}
+              {previewAsReader && (
+                <View style={[styles.previewBanner, { backgroundColor: theme.backgroundSelected }]}>
+                  <Ionicons name="eye" size={16} color={theme.textSecondary} />
+                  <ThemedText type="small" themeColor="textSecondary" style={{ flex: 1 }}>
+                    Reader preview — premium chapters are locked exactly as a buyer sees them. Open a
+                    locked chapter to try the purchase screen.
+                  </ThemedText>
+                </View>
+              )}
               {ownerError && (
                 <ThemedText type="small" style={{ color: '#C0392B' }}>
                   {ownerError}
@@ -347,6 +384,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.two,
     height: 48,
+    borderRadius: 12,
+  },
+  previewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    height: 48,
+    borderRadius: 12,
+  },
+  previewBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.three,
     borderRadius: 12,
   },
   maturePill: {

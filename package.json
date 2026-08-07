@@ -46,7 +46,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "expo export -p web && node scripts/inject-web-head.mjs",
+    "build:web": "expo export -p web && node scripts/fix-vendor-assets.mjs && node scripts/inject-web-head.mjs",
     "lint": "expo lint"
   },
   "private": true
