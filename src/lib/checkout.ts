@@ -9,16 +9,19 @@ import { SITE_URL } from '@/config/app';
  * the tab; on native we open an in-app browser.
  */
 
-const FUNCTIONS_BASE = `${SITE_URL}/api`;
-
-/** Where Stripe should send the user back to after Checkout / the portal. */
+/**
+ * Where the app is running: the current origin on web (so /api calls stay
+ * first-party on whatever domain served the page — the live site, a preview, or
+ * localhost), or the canonical SITE_URL on native. Also used as the Paystack
+ * return URL.
+ */
 function appOrigin(): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined') return window.location.origin;
   return SITE_URL;
 }
 
 async function postForUrl(fn: string, body: Record<string, unknown>): Promise<string> {
-  const res = await fetch(`${FUNCTIONS_BASE}/${fn}`, {
+  const res = await fetch(`${appOrigin()}/api/${fn}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
