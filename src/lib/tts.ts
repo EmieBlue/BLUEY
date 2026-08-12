@@ -17,22 +17,36 @@ function endpoint(): string {
   return `${base}/api/tts`;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function getChapterAudioUrl(params: {
   chapterId: string;
   text: string;
   genre?: string;
 }): Promise<{ url?: string; error?: string }> {
   if (!params.text.trim()) return { error: 'Nothing to read here yet.' };
-  try {
-    const res = await fetch(endpoint(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-    const data = await res.json().catch(() => ({}) as { url?: string; error?: string });
-    if (!res.ok || !data.url) return { error: data.error || 'Could not prepare narration.' };
-    return { url: data.url };
-  } catch {
-    return { error: 'Couldn’t reach the narration service. Check your connection and try again.' };
+
+  // The first generation of a chapter can take a few seconds, and a slow browser
+  // connection sometimes drops before the reply arrives — even though the server
+  // still finished and cached the audio. So retry a few times: a later attempt
+  // usually lands on the freshly-cached file and returns instantly.
+  let lastError = 'Could not prepare narration.';
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(2000);
+    try {
+      const res = await fetch(endpoint(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      const data = await res.json().catch(() => ({}) as { url?: string; error?: string });
+      if (res.ok && data.url) return { url: data.url };
+      lastError = data.error || lastError;
+      // Definitive errors won't fix themselves on retry — stop early.
+      if (res.status === 400 || res.status === 401) return { error: lastError };
+    } catch {
+      lastError = 'Couldn’t reach the narration service. Check your connection and try again.';
+    }
   }
+  return { error: lastError };
 }

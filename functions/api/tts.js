@@ -62,11 +62,33 @@ function chunkText(text, max = 3800) {
   return chunks.length ? chunks : [text.slice(0, max)];
 }
 
+// fetch with an abort timeout so a hung upstream call fails fast (clean JSON
+// error) instead of hanging until the connection is reset.
+async function fetchWithTimeout(url, options, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 export function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost(context) {
+  // Outer guard: ANY unexpected error still returns clean JSON (never a 1101
+  // HTML page, which the client can't parse and reports as "couldn't reach").
+  try {
+    return await handle(context);
+  } catch (e) {
+    return json(500, { error: `Narration error: ${(e && e.message) || e}` });
+  }
+}
+
+async function handle({ request, env }) {
   let body;
   try {
     body = await request.json();
@@ -83,7 +105,7 @@ export async function onRequestPost({ request, env }) {
 
   // Already generated? Serve the cached file.
   try {
-    const head = await fetch(publicUrl, { method: 'HEAD' });
+    const head = await fetchWithTimeout(publicUrl, { method: 'HEAD' }, 10000);
     if (head.ok) return json(200, { url: publicUrl, cached: true });
   } catch {
     /* fall through to generate */
@@ -95,26 +117,31 @@ export async function onRequestPost({ request, env }) {
   try {
     parts = await Promise.all(
       chunks.map(async (chunk) => {
-        const r = await fetch('https://api.openai.com/v1/audio/speech', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
+        const r = await fetchWithTimeout(
+          'https://api.openai.com/v1/audio/speech',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini-tts',
+              voice,
+              input: chunk,
+              instructions,
+              response_format: 'mp3',
+            }),
           },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini-tts',
-            voice,
-            input: chunk,
-            instructions,
-            response_format: 'mp3',
-          }),
-        });
-        if (!r.ok) throw new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 300)}`);
+          25000,
+        );
+        if (!r.ok) throw new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 200)}`);
         return new Uint8Array(await r.arrayBuffer());
       }),
     );
   } catch (e) {
-    return json(502, { error: `Could not generate narration: ${e.message}` });
+    const msg = e && e.name === 'AbortError' ? 'Narration timed out — please try again.' : e.message;
+    return json(502, { error: `Could not generate narration: ${msg}` });
   }
 
   // Concatenate the mp3 parts into one file.
@@ -127,18 +154,27 @@ export async function onRequestPost({ request, env }) {
   }
 
   // Upload to Supabase Storage (service_role, upsert).
-  const up = await fetch(`${env.SUPABASE_URL}/storage/v1/object/tts/${objectPath}`, {
-    method: 'POST',
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      'Content-Type': 'audio/mpeg',
-      'x-upsert': 'true',
-    },
-    body: combined,
-  });
+  let up;
+  try {
+    up = await fetchWithTimeout(
+      `${env.SUPABASE_URL}/storage/v1/object/tts/${objectPath}`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'Content-Type': 'audio/mpeg',
+          'x-upsert': 'true',
+        },
+        body: combined,
+      },
+      25000,
+    );
+  } catch (e) {
+    return json(502, { error: `Could not save narration: ${(e && e.message) || e}` });
+  }
   if (!up.ok) {
-    return json(502, { error: `Could not save narration: ${(await up.text()).slice(0, 300)}` });
+    return json(502, { error: `Could not save narration: ${(await up.text()).slice(0, 200)}` });
   }
 
   return json(200, { url: publicUrl, cached: false });
