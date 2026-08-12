@@ -8,11 +8,23 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
  */
 export function BrandLogo({
   size = 96,
+  bare = false,
   style,
 }: {
   size?: number;
+  /** Transparent mark with no green badge — blends onto any background (e.g. the login). */
+  bare?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  if (bare) {
+    return (
+      <Image
+        source={require('@/assets/images/bluey-logo-transparent.png')}
+        style={[{ width: size, height: size }, style]}
+        contentFit="contain"
+      />
+    );
+  }
   return (
     <View
       style={[styles.badge, { width: size, height: size, borderRadius: size * 0.22 }, style]}>

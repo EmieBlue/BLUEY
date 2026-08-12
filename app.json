@@ -31,7 +31,8 @@
             "imageWidth": 200
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

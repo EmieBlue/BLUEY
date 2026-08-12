@@ -3,8 +3,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedOrbs } from '@/components/animated-orbs';
 import { BrandLogo } from '@/components/brand-logo';
+import { FeaturedHero } from '@/components/featured-hero';
 import { SectionHeader } from '@/components/section-header';
-import { FeaturedCard, ShelfCard } from '@/components/story-card';
+import { ShelfCard } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WriteFab } from '@/components/write-fab';
@@ -34,11 +35,12 @@ export default function HomeScreen() {
 
   if (loading) return <LoadingView />;
 
-  // Home shows only published stories (the author's own drafts stay private).
-  const published = stories.filter((s) => s.status !== 'draft');
-  const featured = published[0];
-  const popular = [...published].sort((a, b) => b.readsCount - a.readsCount);
-  const freeToStart = published.filter((s) => !s.chapters[0]?.isPremium);
+  // Show every story the client is allowed to load. Row-Level Security already
+  // gates this: a signed-out reader only receives *published* stories, while the
+  // author also receives their own drafts — so the author sees a full home (drafts
+  // are marked with a badge) and the public still only sees what's published.
+  const featured = stories.find((s) => s.coverImageUrl) ?? stories[0];
+  const more = featured ? stories.filter((s) => s.id !== featured.id) : stories;
 
   const continueReading = Object.keys(progress)
     .map((id) => getStoryById(id))
@@ -50,11 +52,17 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <BrandLogo size={84} />
+            <BrandLogo size={64} />
             <ThemedText type="small" themeColor="textSecondary">
               {APP_TAGLINE}
             </ThemedText>
           </View>
+
+          {featured && (
+            <View style={styles.section}>
+              <FeaturedHero story={featured} />
+            </View>
+          )}
 
           {continueReading.length > 0 && (
             <View style={styles.section}>
@@ -63,21 +71,21 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {featured && (
+          {more.length > 0 && (
             <View style={styles.section}>
-              <FeaturedCard story={featured} />
+              <SectionHeader title="More stories" subtitle="Fresh from Bluey" />
+              <Shelf stories={more} />
             </View>
           )}
 
-          <View style={styles.section}>
-            <SectionHeader title="Popular right now" subtitle="What everyone’s reading" />
-            <Shelf stories={popular} />
-          </View>
-
-          <View style={styles.section}>
-            <SectionHeader title="Free to start" subtitle="Begin reading for free" />
-            <Shelf stories={freeToStart} />
-          </View>
+          {stories.length === 0 && (
+            <View style={styles.empty}>
+              <ThemedText type="subtitle">No stories yet</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                New stories are on the way — check back soon.
+              </ThemedText>
+            </View>
+          )}
         </ScrollView>
         <WriteFab />
       </SafeAreaView>
@@ -105,6 +113,11 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 0,
+  },
+  empty: {
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.six,
   },
   shelfRow: {
     gap: Spacing.three,

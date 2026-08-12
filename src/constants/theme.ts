@@ -48,6 +48,16 @@ export const Colors = {
     accent: '#0F8B6D',
     accentOn: '#FFFFFF',
   },
+  // Emerald Noir — deep forest green, matches the login (dark).
+  emeralddark: {
+    text: '#ECF7F2',
+    background: '#04140F',
+    backgroundElement: '#0D241B',
+    backgroundSelected: '#16382A',
+    textSecondary: '#93B7AB',
+    accent: '#12A97E',
+    accentOn: '#FFFFFF',
+  },
   // Rosé Noir — deep plum + rose pink, romantic (dark).
   rose: {
     text: '#F6ECF1',
@@ -83,8 +93,9 @@ export const Colors = {
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 /** Selectable color themes for the in-app theme switcher. */
-export type ThemeKey = 'system' | 'navy' | 'emerald' | 'rose' | 'violet' | 'peach';
+export type ThemeKey = 'system' | 'navy' | 'emerald' | 'emeralddark' | 'rose' | 'violet' | 'peach';
 export const THEMES: { key: ThemeKey; label: string }[] = [
+  { key: 'emeralddark', label: 'Emerald Noir' },
   { key: 'navy', label: 'Navy & Gold' },
   { key: 'emerald', label: 'Emerald & White' },
   { key: 'rose', label: 'Rosé Noir' },

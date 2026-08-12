@@ -20,6 +20,15 @@ function formatLabel(story: Story): string {
   return `Serial · ${story.chapters.length} ch`;
 }
 
+/** Corner chip shown on a cover the author hasn't published yet. */
+function DraftBadge() {
+  return (
+    <View style={styles.draftBadge}>
+      <ThemedText style={styles.draftBadgeText}>DRAFT</ThemedText>
+    </View>
+  );
+}
+
 /** Small inline row: rating ★, reads, and a premium marker if relevant. */
 export function StoryMeta({ story }: { story: Story }) {
   const theme = useTheme();
@@ -82,7 +91,10 @@ export function ShelfCard({ story }: { story: Story }) {
     <Pressable
       onPress={open}
       style={({ pressed }) => [styles.shelf, { opacity: pressed ? 0.85 : 1 }]}>
-      <StoryCover story={story} width={140} height={200} />
+      <View style={styles.coverShadow}>
+        <StoryCover story={story} width={150} height={220} showTitle={false} />
+        {story.status === 'draft' && <DraftBadge />}
+      </View>
       <ThemedText type="smallBold" numberOfLines={1} style={styles.shelfTitle}>
         {story.title}
       </ThemedText>
@@ -100,7 +112,10 @@ export function GridCard({ story, width }: { story: Story; width: number }) {
     <Pressable
       onPress={open}
       style={({ pressed }) => [{ width, opacity: pressed ? 0.85 : 1 }]}>
-      <StoryCover story={story} width={width} height={width * 1.45} />
+      <View style={styles.coverShadow}>
+        <StoryCover story={story} width={width} height={width * 1.45} showTitle={false} />
+        {story.status === 'draft' && <DraftBadge />}
+      </View>
       <ThemedText type="smallBold" numberOfLines={2} style={styles.shelfTitle}>
         {story.title}
       </ThemedText>
@@ -149,9 +164,27 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   shelf: {
-    width: 140,
+    width: 150,
     gap: 2,
   },
+  coverShadow: {
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  draftBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  draftBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   shelfTitle: {
     marginTop: 8,
   },

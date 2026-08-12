@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -10,7 +11,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,18 +22,28 @@ import { ThemedView } from '@/components/themed-view';
 import { APP_TAGLINE } from '@/config/app';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
+import { useStoriesData } from '@/context/stories';
 import { useTheme } from '@/hooks/use-theme';
 
 type Mode = 'signin' | 'signup';
 
+// Fallback background when no book cover has a photo yet.
 const HERO_GRADIENT = ['#0F8B6D', '#075E4A', '#023025'] as const;
+// Dark, emerald-tinted scrim over the photo so the glass card + white text pop.
+const SCRIM = ['rgba(2,48,37,0.45)', 'rgba(3,20,16,0.82)'] as const;
+
+// Frosted-glass blur only exists on web; native gets the translucent card look.
+const glassWeb =
+  Platform.OS === 'web'
+    ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- web-only CSS passthrough
+      ({ backdropFilter: 'blur(22px) saturate(1.3)', WebkitBackdropFilter: 'blur(22px) saturate(1.3)' } as any)
+    : null;
 
 export default function AuthScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const wide = width >= 820;
   const { signIn, signUp, resetPassword, configured } = useAuth();
+  const { stories } = useStoriesData();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
@@ -44,6 +54,9 @@ export default function AuthScreen() {
   const [info, setInfo] = useState<string | null>(null);
 
   const isSignup = mode === 'signup';
+
+  // A real book cover (photo) as the atmospheric background; gradient if none.
+  const heroCover = stories.find((s) => s.status !== 'draft' && s.coverImageUrl)?.coverImageUrl;
 
   const onSubmit = async () => {
     setError(null);
@@ -86,137 +99,120 @@ export default function AuthScreen() {
     setInfo('Check your email for a link to reset your password.');
   };
 
-  const hero = (
-    <LinearGradient
-      colors={HERO_GRADIENT}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.hero, wide ? styles.heroWide : styles.heroNarrow]}>
-      <AnimatedOrbs />
-      <BrandLogo size={wide ? 104 : 72} />
-      <ThemedText style={[styles.welcome, { fontSize: wide ? 52 : 34, lineHeight: wide ? 56 : 38 }]}>
-        Welcome{'\n'}Back
-      </ThemedText>
-      <ThemedText style={styles.heroTagline}>{APP_TAGLINE}</ThemedText>
-    </LinearGradient>
-  );
-
-  const form = (
-    <ScrollView
-      contentContainerStyle={styles.formScroll}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}>
-      <View style={styles.formInner}>
-        <ThemedText style={styles.title}>{isSignup ? 'Create your account' : 'Sign in'}</ThemedText>
-        <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-          {isSignup
-            ? 'Save your library and reading progress across devices.'
-            : 'Sign in to pick up where you left off.'}
-        </ThemedText>
-
-        {!configured && (
-          <View style={[styles.banner, { backgroundColor: theme.backgroundElement }]}>
-            <Ionicons name="information-circle" size={18} color={theme.textSecondary} />
-            <ThemedText type="small" themeColor="textSecondary" style={styles.flex}>
-              Accounts aren’t connected yet. Add your Supabase keys to enable sign-in.
-            </ThemedText>
-          </View>
-        )}
-
-        {isSignup && (
-          <Field
-            icon="person-outline"
-            placeholder="Display name (optional)"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
-        )}
-        <Field
-          icon="mail-outline"
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-        />
-        <Field
-          icon="lock-closed-outline"
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-
-        {!isSignup && (
-          <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotRow}>
-            <ThemedText type="small" themeColor="accent">
-              Forgot password?
-            </ThemedText>
-          </Pressable>
-        )}
-
-        {error && (
-          <ThemedText type="small" style={[styles.message, { color: '#C0392B' }]}>
-            {error}
-          </ThemedText>
-        )}
-        {info && (
-          <ThemedText type="small" style={[styles.message, { color: '#2E8B57' }]}>
-            {info}
-          </ThemedText>
-        )}
-
-        <Pressable
-          onPress={onSubmit}
-          disabled={busy}
-          style={({ pressed }) => [
-            styles.cta,
-            { backgroundColor: theme.accent, opacity: busy ? 0.6 : pressed ? 0.85 : 1 },
-          ]}>
-          {busy ? (
-            <ActivityIndicator color={theme.accentOn} />
-          ) : (
-            <ThemedText style={[styles.ctaText, { color: theme.accentOn }]}>
-              {isSignup ? 'Create account' : 'Sign in now'}
-            </ThemedText>
-          )}
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            setMode(isSignup ? 'signin' : 'signup');
-            setError(null);
-            setInfo(null);
-          }}
-          hitSlop={8}
-          style={styles.switchRow}>
-          <ThemedText type="small" themeColor="textSecondary">
-            {isSignup ? 'Already have an account? ' : 'New here? '}
-            <ThemedText type="small" themeColor="accent">
-              {isSignup ? 'Sign in' : 'Create one'}
-            </ThemedText>
-          </ThemedText>
-        </Pressable>
-      </View>
-    </ScrollView>
-  );
-
   return (
     <ThemedView style={styles.container}>
-      <AnimatedOrbs subtle />
+      {/* Full-bleed background: a blurred book cover, or the emerald gradient. */}
+      {heroCover ? (
+        <Image
+          source={{ uri: heroCover }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          blurRadius={18}
+          transition={250}
+        />
+      ) : (
+        <LinearGradient colors={HERO_GRADIENT} style={StyleSheet.absoluteFill} />
+      )}
+      <LinearGradient colors={SCRIM} style={StyleSheet.absoluteFill} />
+      <AnimatedOrbs />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}>
-        <View style={wide ? styles.rowWide : styles.colNarrow}>
-          {hero}
-          {wide ? <View style={styles.formCol}>{form}</View> : form}
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={[styles.card, glassWeb]}>
+            <BrandLogo bare size={96} style={styles.logo} />
+            <ThemedText style={styles.title}>
+              {isSignup ? 'Create your\naccount' : 'Welcome\nback'}
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              {isSignup ? 'Join Bluey to save your library and read across devices.' : APP_TAGLINE}
+            </ThemedText>
+
+            {!configured && (
+              <View style={styles.banner}>
+                <Ionicons name="information-circle" size={18} color="rgba(255,255,255,0.8)" />
+                <ThemedText style={styles.bannerText}>
+                  Accounts aren’t connected yet. Add your Supabase keys to enable sign-in.
+                </ThemedText>
+              </View>
+            )}
+
+            {isSignup && (
+              <Field
+                icon="person-outline"
+                placeholder="Display name (optional)"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+              />
+            )}
+            <Field
+              icon="mail-outline"
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+            <Field
+              icon="lock-closed-outline"
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+
+            {!isSignup && (
+              <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotRow}>
+                <ThemedText style={styles.forgotText}>Forgot password?</ThemedText>
+              </Pressable>
+            )}
+
+            {error && <ThemedText style={[styles.message, styles.error]}>{error}</ThemedText>}
+            {info && <ThemedText style={[styles.message, styles.info]}>{info}</ThemedText>}
+
+            <Pressable
+              onPress={onSubmit}
+              disabled={busy}
+              style={({ pressed }) => [
+                styles.cta,
+                { backgroundColor: theme.accent, opacity: busy ? 0.6 : pressed ? 0.85 : 1 },
+              ]}>
+              {busy ? (
+                <ActivityIndicator color={theme.accentOn} />
+              ) : (
+                <ThemedText style={[styles.ctaText, { color: theme.accentOn }]}>
+                  {isSignup ? 'Create account' : 'Sign in now'}
+                </ThemedText>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setMode(isSignup ? 'signin' : 'signup');
+                setError(null);
+                setInfo(null);
+              }}
+              hitSlop={8}
+              style={styles.switchRow}>
+              <ThemedText style={styles.switchText}>
+                {isSignup ? 'Already have an account? ' : 'New here? '}
+                <ThemedText style={styles.switchLink}>
+                  {isSignup ? 'Sign in' : 'Create one'}
+                </ThemedText>
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Close (X) floats over everything; dark translucent so it shows on both panels. */}
+      {/* Close (X) floats over everything. */}
       <SafeAreaView edges={['top']} style={styles.closeSafe} pointerEvents="box-none">
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
           <Ionicons name="close" size={22} color="#FFFFFF" />
@@ -231,14 +227,13 @@ function Field({
   secureTextEntry,
   ...inputProps
 }: { icon: keyof typeof Ionicons.glyphMap } & React.ComponentProps<typeof TextInput>) {
-  const theme = useTheme();
   const [hidden, setHidden] = useState(Boolean(secureTextEntry));
   return (
-    <View style={[styles.field, { backgroundColor: theme.backgroundElement }]}>
-      <Ionicons name={icon} size={18} color={theme.textSecondary} />
+    <View style={styles.field}>
+      <Ionicons name={icon} size={18} color="rgba(255,255,255,0.75)" />
       <TextInput
-        placeholderTextColor={theme.textSecondary}
-        style={[styles.input, { color: theme.text }]}
+        placeholderTextColor="rgba(255,255,255,0.6)"
+        style={styles.input}
         secureTextEntry={secureTextEntry ? hidden : false}
         {...inputProps}
       />
@@ -247,7 +242,7 @@ function Field({
           <Ionicons
             name={hidden ? 'eye-outline' : 'eye-off-outline'}
             size={20}
-            color={theme.textSecondary}
+            color="rgba(255,255,255,0.75)"
           />
         </Pressable>
       ) : null}
@@ -257,52 +252,81 @@ function Field({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1 },
-  rowWide: { flex: 1, flexDirection: 'row' },
-  colNarrow: { flex: 1, flexDirection: 'column' },
+  container: { flex: 1, backgroundColor: '#031410' },
 
-  hero: { alignItems: 'flex-start', justifyContent: 'center', gap: Spacing.three, overflow: 'hidden' },
-  heroWide: { flex: 0.9, paddingHorizontal: Spacing.six, paddingVertical: Spacing.five },
-  heroNarrow: {
-    paddingTop: Spacing.six,
-    paddingBottom: Spacing.five,
-    paddingHorizontal: Spacing.four,
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.four,
   },
-  welcome: { color: '#FFFFFF', fontWeight: '800', letterSpacing: -1 },
-  heroTagline: { color: 'rgba(255,255,255,0.85)', fontSize: 16, lineHeight: 24, maxWidth: 360 },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    gap: Spacing.three,
+    padding: Spacing.four,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    // Soft lift off the photo.
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 18 },
+  },
+  logo: { marginBottom: Spacing.one },
+  title: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: '800', letterSpacing: -1 },
+  subtitle: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: -Spacing.one,
+    marginBottom: Spacing.one,
+  },
 
-  formCol: { flex: 1.1 },
-  formScroll: { flexGrow: 1, justifyContent: 'center', padding: Spacing.four },
-  formInner: { width: '100%', maxWidth: 400, alignSelf: 'center', gap: Spacing.three },
-  title: { fontSize: 28, fontWeight: '800' },
-  subtitle: { fontSize: 15, marginBottom: Spacing.two },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
     padding: Spacing.three,
     borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
+  bannerText: { flex: 1, color: 'rgba(255,255,255,0.85)', fontSize: 13, lineHeight: 18 },
+
   field: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     height: 52,
-    borderRadius: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
-  input: { flex: 1, fontSize: 16, height: '100%' },
+  input: { flex: 1, fontSize: 16, height: '100%', color: '#FFFFFF' },
+
   forgotRow: { alignSelf: 'flex-end', marginTop: -Spacing.one },
-  message: { marginTop: -4 },
+  forgotText: { color: '#FFFFFF', fontSize: 13, fontWeight: '600' },
+
+  message: { fontSize: 13, marginTop: -4 },
+  error: { color: '#FF8A80' },
+  info: { color: '#8EE7BE' },
+
   cta: {
     height: 54,
-    borderRadius: 14,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.two,
   },
   ctaText: { fontSize: 17, fontWeight: '800' },
-  switchRow: { alignItems: 'center', paddingVertical: Spacing.two },
+
+  switchRow: { alignItems: 'center', paddingVertical: Spacing.one },
+  switchText: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
+  switchLink: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 
   closeSafe: { position: 'absolute', top: 0, right: 0, padding: Spacing.three },
   closeBtn: {

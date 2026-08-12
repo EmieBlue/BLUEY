@@ -18,6 +18,7 @@ const VALID_KEYS = new Set<string>(THEMES.map((t) => t.key));
 
 /** Custom (non-system) themes and whether each is dark. */
 const CUSTOM_THEMES: Partial<Record<ThemeKey, { palette: Palette; isDark: boolean }>> = {
+  emeralddark: { palette: Colors.emeralddark, isDark: true },
   navy: { palette: Colors.navy, isDark: true },
   emerald: { palette: Colors.emerald, isDark: false },
   rose: { palette: Colors.rose, isDark: true },
@@ -32,12 +33,14 @@ interface ThemeMode {
   isDark: boolean;
 }
 
-const STORAGE_KEY = 'bluey.theme';
+// Bumped to .v2 so the previous default ('emerald', light) doesn't stick for
+// visitors who loaded the app before the dark "Emerald Noir" default.
+const STORAGE_KEY = 'bluey.theme.v2';
 const ThemeContext = createContext<ThemeMode | null>(null);
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const scheme = useColorScheme();
-  const [themeKey, setThemeKeyState] = useState<ThemeKey>('emerald');
+  const [themeKey, setThemeKeyState] = useState<ThemeKey>('emeralddark');
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((v) => {

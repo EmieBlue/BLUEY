@@ -1,8 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Speech from 'expo-speech';
 import { createElement, useEffect, useRef, useState } from 'react';
-import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CommentsSection } from '@/components/comments-section';
@@ -18,6 +28,7 @@ import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
+import { getChapterAudioUrl } from '@/lib/tts';
 
 const READING_WIDTH = 720;
 
@@ -38,39 +49,23 @@ export default function ReaderScreen() {
   const { user } = useAuth();
   const { loading, getChapter, getAdjacentChapter } = useStoriesData();
 
-  const [speaking, setSpeaking] = useState(false);
   const [rate, setRate] = useState(1);
-  const [voiceId, setVoiceId] = useState<string | undefined>(undefined);
-  const [voices, setVoices] = useState<Speech.Voice[]>([]);
   const [autoAdvance, setAutoAdvance] = useState(autoadvance === '1');
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const autoStartedRef = useRef<string | null>(null);
+
+  // Natural narration: one cached mp3 per chapter, played via expo-audio.
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+  const playing = status.playing;
 
   const result = getChapter(storyId, chapterId);
   const isOwner = !!user && result?.story.ownerId === user.id;
   const hasAccess = result ? hasPurchased(result.story.id) || isOwner : false;
   const locked = result ? result.chapter.isPremium && !hasAccess : false;
-
-  // Load available (English) voices for the picker (web loads them asynchronously).
-  useEffect(() => {
-    let active = true;
-    let tries = 0;
-    const load = () => {
-      Speech.getAvailableVoicesAsync()
-        .then((vs) => {
-          if (!active) return;
-          const en = vs.filter((v) => v.language?.toLowerCase().startsWith('en'));
-          if (en.length) setVoices(en);
-          else if (tries++ < 4) setTimeout(load, 700);
-        })
-        .catch(() => {});
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // Remember where the reader got to (only once we know it's readable).
   useEffect(() => {
@@ -79,46 +74,63 @@ export default function ReaderScreen() {
     }
   }, [result, locked, storyId, chapterId, setProgress]);
 
-  // Stop any read-aloud when the chapter changes or the screen unmounts.
+  // New chapter → forget the old audio and stop playing.
   useEffect(() => {
-    return () => {
-      Speech.stop();
-    };
+    setAudioReady(false);
+    setAudioError(null);
+    setPreparing(false);
+    try {
+      player.pause();
+    } catch {
+      /* player may not be ready */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterId]);
 
   const handleEnd = () => {
-    if (!result) {
-      setSpeaking(false);
-      return;
-    }
+    if (!result) return;
     const nx = getAdjacentChapter(result.story.id, result.chapter.id, 'next');
     if (autoAdvance && nx && !(nx.isPremium && !hasAccess)) {
       router.replace({
         pathname: '/reader/[storyId]/[chapterId]',
         params: { storyId: result.story.id, chapterId: nx.id, autoplay: '1', autoadvance: '1' },
       });
-    } else {
-      setSpeaking(false);
     }
   };
 
-  const speakFrom = (start: number, opts?: { rate?: number; voiceId?: string }) => {
+  // Auto-advance to the next chapter when narration finishes.
+  useEffect(() => {
+    if (status.didJustFinish) handleEnd();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.didJustFinish]);
+
+  const prepareAndPlay = async () => {
     if (!result) return;
-    const r = opts?.rate ?? rate;
-    const v = opts && 'voiceId' in opts ? opts.voiceId : voiceId;
+    if (audioReady) {
+      player.play();
+      return;
+    }
     const paras = result.chapter.paragraphs;
     if (!paras.length) return;
-    Speech.stop();
-    setSpeaking(true);
-    for (let i = start; i < paras.length; i++) {
-      const idx = i;
-      const isLast = i === paras.length - 1;
-      Speech.speak(paras[i], {
-        rate: r,
-        voice: v,
-        onStart: () => setCurrentIndex(idx),
-        onDone: isLast ? handleEnd : undefined,
-      });
+    setAudioError(null);
+    setPreparing(true);
+    const res = await getChapterAudioUrl({
+      chapterId,
+      text: paras.join('\n\n'),
+      genre: result.story.genres?.[0],
+    });
+    setPreparing(false);
+    if (res.error || !res.url) {
+      setAudioError(res.error || 'Could not prepare narration.');
+      return;
+    }
+    try {
+      player.replace(res.url);
+      player.playbackRate = rate;
+      player.play();
+      setAudioReady(true);
+    } catch {
+      setAudioError('Could not play the narration.');
     }
   };
 
@@ -126,28 +138,26 @@ export default function ReaderScreen() {
   useEffect(() => {
     if (autoplay === '1' && result && !locked && autoStartedRef.current !== chapterId) {
       autoStartedRef.current = chapterId;
-      speakFrom(0);
+      prepareAndPlay();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterId, autoplay, loading, locked]);
 
   const toggleListen = () => {
-    if (speaking) {
-      Speech.stop();
-      setSpeaking(false);
-    } else {
-      speakFrom(0);
+    if (playing) {
+      player.pause();
+      return;
     }
+    prepareAndPlay();
   };
 
   const changeRate = (r: number) => {
     setRate(r);
-    if (speaking) speakFrom(currentIndex, { rate: r });
-  };
-
-  const changeVoice = (v: string | undefined) => {
-    setVoiceId(v);
-    if (speaking) speakFrom(currentIndex, { voiceId: v });
+    try {
+      player.playbackRate = r;
+    } catch {
+      /* ignore */
+    }
   };
 
   if (loading) return <LoadingView />;
@@ -239,14 +249,19 @@ export default function ReaderScreen() {
               <View style={styles.audioTopRow}>
                 <Pressable
                   onPress={toggleListen}
-                  style={[styles.listenBtn, { backgroundColor: theme.accent }]}>
-                  <Ionicons
-                    name={speaking ? 'stop' : 'volume-high'}
-                    size={18}
-                    color={theme.accentOn}
-                  />
+                  disabled={preparing}
+                  style={[styles.listenBtn, { backgroundColor: theme.accent, opacity: preparing ? 0.7 : 1 }]}>
+                  {preparing ? (
+                    <ActivityIndicator size="small" color={theme.accentOn} />
+                  ) : (
+                    <Ionicons
+                      name={playing ? 'pause' : 'volume-high'}
+                      size={18}
+                      color={theme.accentOn}
+                    />
+                  )}
                   <ThemedText type="smallBold" style={{ color: theme.accentOn }}>
-                    {speaking ? 'Stop' : 'Listen'}
+                    {preparing ? 'Preparing…' : playing ? 'Pause' : audioReady ? 'Resume' : 'Listen'}
                   </ThemedText>
                 </Pressable>
                 <View style={styles.autoRow}>
@@ -280,43 +295,14 @@ export default function ReaderScreen() {
                 ))}
               </View>
 
-              {voices.length > 0 && (
-                <View style={styles.voiceGroup}>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Voice
-                  </ThemedText>
-                  <View style={styles.voiceWrap}>
-                    <Pressable
-                      onPress={() => changeVoice(undefined)}
-                      style={[
-                        styles.speedChip,
-                        { backgroundColor: !voiceId ? theme.accent : theme.backgroundElement },
-                      ]}>
-                      <ThemedText type="small" style={{ color: !voiceId ? theme.accentOn : theme.text }}>
-                        Default
-                      </ThemedText>
-                    </Pressable>
-                    {voices.map((v) => (
-                      <Pressable
-                        key={v.identifier}
-                        onPress={() => changeVoice(v.identifier)}
-                        style={[
-                          styles.speedChip,
-                          {
-                            backgroundColor:
-                              voiceId === v.identifier ? theme.accent : theme.backgroundElement,
-                          },
-                        ]}>
-                        <ThemedText
-                          type="small"
-                          numberOfLines={1}
-                          style={{ color: voiceId === v.identifier ? theme.accentOn : theme.text }}>
-                          {v.name.split(' - ')[0]}
-                        </ThemedText>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
+              {audioError ? (
+                <ThemedText type="small" style={{ color: '#FF8A80' }}>
+                  {audioError}
+                </ThemedText>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  🎧 Natural narration, matched to this story’s mood.
+                </ThemedText>
               )}
             </View>
 
