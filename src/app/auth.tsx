@@ -17,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedOrbs } from '@/components/animated-orbs';
 import { BrandLogo } from '@/components/brand-logo';
+import { LoginIntro } from '@/components/login-intro';
+import { Reveal } from '@/components/reveal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_TAGLINE } from '@/config/app';
@@ -52,6 +54,8 @@ export default function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  // Cinematic "starter": the logo scans in, then the card cascades up.
+  const [intro, setIntro] = useState(true);
 
   const isSignup = mode === 'signup';
 
@@ -124,90 +128,98 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={[styles.card, glassWeb]}>
-            <BrandLogo bare size={96} style={styles.logo} />
-            <ThemedText style={styles.title}>
-              {isSignup ? 'Create your\naccount' : 'Welcome\nback'}
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>
-              {isSignup ? 'Join Bluey to save your library and read across devices.' : APP_TAGLINE}
-            </ThemedText>
-
-            {!configured && (
-              <View style={styles.banner}>
-                <Ionicons name="information-circle" size={18} color="rgba(255,255,255,0.8)" />
-                <ThemedText style={styles.bannerText}>
-                  Accounts aren’t connected yet. Add your Supabase keys to enable sign-in.
-                </ThemedText>
-              </View>
-            )}
-
-            {isSignup && (
-              <Field
-                icon="person-outline"
-                placeholder="Display name (optional)"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-              />
-            )}
-            <Field
-              icon="mail-outline"
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-            />
-            <Field
-              icon="lock-closed-outline"
-              placeholder="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
-
-            {!isSignup && (
-              <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotRow}>
-                <ThemedText style={styles.forgotText}>Forgot password?</ThemedText>
-              </Pressable>
-            )}
-
-            {error && <ThemedText style={[styles.message, styles.error]}>{error}</ThemedText>}
-            {info && <ThemedText style={[styles.message, styles.info]}>{info}</ThemedText>}
-
-            <Pressable
-              onPress={onSubmit}
-              disabled={busy}
-              style={({ pressed }) => [
-                styles.cta,
-                { backgroundColor: theme.accent, opacity: busy ? 0.6 : pressed ? 0.85 : 1 },
-              ]}>
-              {busy ? (
-                <ActivityIndicator color={theme.accentOn} />
-              ) : (
-                <ThemedText style={[styles.ctaText, { color: theme.accentOn }]}>
-                  {isSignup ? 'Create account' : 'Sign in now'}
-                </ThemedText>
-              )}
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                setMode(isSignup ? 'signin' : 'signup');
-                setError(null);
-                setInfo(null);
-              }}
-              hitSlop={8}
-              style={styles.switchRow}>
-              <ThemedText style={styles.switchText}>
-                {isSignup ? 'Already have an account? ' : 'New here? '}
-                <ThemedText style={styles.switchLink}>
-                  {isSignup ? 'Sign in' : 'Create one'}
-                </ThemedText>
+            <Reveal active={!intro} delay={0} style={styles.group}>
+              <BrandLogo bare size={96} style={styles.logo} />
+              <ThemedText style={styles.title}>
+                {isSignup ? 'Create your\naccount' : 'Welcome\nback'}
               </ThemedText>
-            </Pressable>
+              <ThemedText style={styles.subtitle}>
+                {isSignup
+                  ? 'Join Bluey to save your library and read across devices.'
+                  : APP_TAGLINE}
+              </ThemedText>
+            </Reveal>
+
+            <Reveal active={!intro} delay={170} style={styles.group}>
+              {!configured && (
+                <View style={styles.banner}>
+                  <Ionicons name="information-circle" size={18} color="rgba(255,255,255,0.8)" />
+                  <ThemedText style={styles.bannerText}>
+                    Accounts aren’t connected yet. Add your Supabase keys to enable sign-in.
+                  </ThemedText>
+                </View>
+              )}
+
+              {isSignup && (
+                <Field
+                  icon="person-outline"
+                  placeholder="Display name (optional)"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                />
+              )}
+              <Field
+                icon="mail-outline"
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
+              <Field
+                icon="lock-closed-outline"
+                placeholder="Password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+
+              {!isSignup && (
+                <Pressable onPress={onForgot} hitSlop={8} style={styles.forgotRow}>
+                  <ThemedText style={styles.forgotText}>Forgot password?</ThemedText>
+                </Pressable>
+              )}
+
+              {error && <ThemedText style={[styles.message, styles.error]}>{error}</ThemedText>}
+              {info && <ThemedText style={[styles.message, styles.info]}>{info}</ThemedText>}
+            </Reveal>
+
+            <Reveal active={!intro} delay={340} style={styles.group}>
+              <Pressable
+                onPress={onSubmit}
+                disabled={busy}
+                style={({ pressed }) => [
+                  styles.cta,
+                  { backgroundColor: theme.accent, opacity: busy ? 0.6 : pressed ? 0.85 : 1 },
+                ]}>
+                {busy ? (
+                  <ActivityIndicator color={theme.accentOn} />
+                ) : (
+                  <ThemedText style={[styles.ctaText, { color: theme.accentOn }]}>
+                    {isSignup ? 'Create account' : 'Sign in now'}
+                  </ThemedText>
+                )}
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setMode(isSignup ? 'signin' : 'signup');
+                  setError(null);
+                  setInfo(null);
+                }}
+                hitSlop={8}
+                style={styles.switchRow}>
+                <ThemedText style={styles.switchText}>
+                  {isSignup ? 'Already have an account? ' : 'New here? '}
+                  <ThemedText style={styles.switchLink}>
+                    {isSignup ? 'Sign in' : 'Create one'}
+                  </ThemedText>
+                </ThemedText>
+              </Pressable>
+            </Reveal>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -218,6 +230,17 @@ export default function AuthScreen() {
           <Ionicons name="close" size={22} color="#FFFFFF" />
         </Pressable>
       </SafeAreaView>
+
+      {/* Cinematic scan-in "starter" over everything; fades to reveal the card. */}
+      {intro && (
+        <LoginIntro
+          onDone={() => setIntro(false)}
+          covers={stories
+            .filter((s) => s.coverImageUrl)
+            .slice(0, 3)
+            .map((s) => s.coverImageUrl as string)}
+        />
+      )}
     </ThemedView>
   );
 }
@@ -276,6 +299,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 18 },
   },
   logo: { marginBottom: Spacing.one },
+  group: { gap: Spacing.three },
   title: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: '800', letterSpacing: -1 },
   subtitle: {
     color: 'rgba(255,255,255,0.82)',

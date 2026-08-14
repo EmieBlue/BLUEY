@@ -52,7 +52,7 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <BrandLogo size={64} />
+            <BrandLogo bare size={76} />
             <ThemedText type="small" themeColor="textSecondary">
               {APP_TAGLINE}
             </ThemedText>

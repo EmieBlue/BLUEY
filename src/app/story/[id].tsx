@@ -71,6 +71,11 @@ export default function StoryDetailScreen() {
   };
 
   const openChapter = (chapter: Chapter) => {
+    // Reading requires an account — send signed-out visitors to sign in first.
+    if (!user) {
+      router.push('/auth');
+      return;
+    }
     if (chapter.isPremium && !hasAccess) {
       router.push({ pathname: '/paywall', params: { storyId: story.id } });
       return;

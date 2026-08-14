@@ -46,7 +46,7 @@ export default function ReaderScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { hasPurchased, setProgress } = useAppState();
-  const { user } = useAuth();
+  const { user, initializing } = useAuth();
   const { loading, getChapter, getAdjacentChapter } = useStoriesData();
 
   const [rate, setRate] = useState(1);
@@ -160,7 +160,7 @@ export default function ReaderScreen() {
     }
   };
 
-  if (loading) return <LoadingView />;
+  if (loading || initializing) return <LoadingView />;
 
   if (!result) {
     return (
@@ -170,6 +170,18 @@ export default function ReaderScreen() {
           <ThemedText type="linkPrimary">Go back</ThemedText>
         </Pressable>
       </ThemedView>
+    );
+  }
+
+  // Reading requires an account: browsing is open, but opening a chapter asks
+  // signed-out visitors to sign in / create a free account first.
+  if (!user) {
+    return (
+      <SignInGate
+        title={result.story.title}
+        onSignIn={() => router.push('/auth')}
+        onBack={() => router.back()}
+      />
     );
   }
 
@@ -484,6 +496,47 @@ function LockedView({
         </ThemedText>
       </Pressable>
     </View>
+  );
+}
+
+function SignInGate({
+  title,
+  onSignIn,
+  onBack,
+}: {
+  title: string;
+  onSignIn: () => void;
+  onBack: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
+        <View style={styles.headerBar}>
+          <Pressable onPress={onBack} hitSlop={12}>
+            <Ionicons name="chevron-back" size={26} color={theme.text} />
+          </Pressable>
+          <View style={{ width: 26 }} />
+        </View>
+      </SafeAreaView>
+      <View style={styles.locked}>
+        <Ionicons name="lock-closed" size={44} color={theme.accent} />
+        <ThemedText style={styles.lockedTitle}>Sign in to read</ThemedText>
+        <ThemedText themeColor="textSecondary" style={styles.lockedText}>
+          Create a free account (or sign in) to start reading “{title}” on {APP_NAME}.
+        </ThemedText>
+        <Pressable
+          onPress={onSignIn}
+          style={({ pressed }) => [
+            styles.lockedCta,
+            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+          ]}>
+          <ThemedText style={[styles.lockedCtaText, { color: theme.accentOn }]}>
+            Sign in / Create account
+          </ThemedText>
+        </Pressable>
+      </View>
+    </ThemedView>
   );
 }
 
