@@ -18,11 +18,13 @@ export function BrandLogo({
 }) {
   if (bare) {
     return (
-      <Image
-        source={require('@/assets/images/bluey-logo-transparent.png')}
-        style={[{ width: size, height: size }, style]}
-        contentFit="contain"
-      />
+      <View style={[{ width: size, height: size }, style]}>
+        <Image
+          source={require('@/assets/images/bluey-logo-transparent.png')}
+          style={StyleSheet.absoluteFill}
+          contentFit="contain"
+        />
+      </View>
     );
   }
   return (

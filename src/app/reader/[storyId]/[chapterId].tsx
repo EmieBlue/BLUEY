@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,6 +33,14 @@ import { getChapterAudioUrl } from '@/lib/tts';
 
 const READING_WIDTH = 720;
 
+const posKey = (id: string) => 'bluey.pos.' + id;
+const fmtTime = (s?: number) => {
+  const t = Math.max(0, Math.floor(s || 0));
+  const m = Math.floor(t / 60);
+  const ss = t % 60;
+  return `${m}:${ss < 10 ? '0' : ''}${ss}`;
+};
+
 const countWords = (paras: string[]) => paras.join(' ').trim().split(/\s+/).filter(Boolean).length;
 const fmtDate = (iso?: string) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null;
@@ -55,7 +64,11 @@ export default function ReaderScreen() {
   const [preparing, setPreparing] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [repeat, setRepeat] = useState(false);
+  const [barW, setBarW] = useState(0);
   const autoStartedRef = useRef<string | null>(null);
+  const pendingSeekRef = useRef<number | null>(null); // resume position to seek to once loaded
+  const lastSaveRef = useRef(0);
 
   // Natural narration: one cached mp3 per chapter, played via expo-audio.
   const player = useAudioPlayer(null);
@@ -98,11 +111,49 @@ export default function ReaderScreen() {
     }
   };
 
-  // Auto-advance to the next chapter when narration finishes.
+  // When narration finishes: repeat the chapter, or auto-advance.
   useEffect(() => {
-    if (status.didJustFinish) handleEnd();
+    if (!status.didJustFinish) return;
+    AsyncStorage.removeItem(posKey(chapterId)).catch(() => {});
+    if (repeat) {
+      try {
+        player.seekTo(0);
+        player.play();
+      } catch {
+        /* ignore */
+      }
+    } else {
+      handleEnd();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status.didJustFinish]);
+
+  // Once the freshly-loaded track is ready, jump to the saved resume position.
+  useEffect(() => {
+    if (status.isLoaded && pendingSeekRef.current != null) {
+      const to = pendingSeekRef.current;
+      pendingSeekRef.current = null;
+      if (to > 2 && (!status.duration || to < status.duration - 3)) {
+        try {
+          player.seekTo(to);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.isLoaded]);
+
+  // While playing, remember the position every few seconds (so "continue where
+  // you left off" survives leaving the chapter or closing the app).
+  useEffect(() => {
+    if (!playing) return;
+    const now = Date.now();
+    if (now - lastSaveRef.current > 4000 && (status.currentTime || 0) > 1) {
+      lastSaveRef.current = now;
+      AsyncStorage.setItem(posKey(chapterId), String(status.currentTime)).catch(() => {});
+    }
+  }, [status.currentTime, playing, chapterId]);
 
   const prepareAndPlay = async () => {
     if (!result) return;
@@ -124,13 +175,41 @@ export default function ReaderScreen() {
       setAudioError(res.error || 'Could not prepare narration.');
       return;
     }
+    let savedPos = 0;
+    try {
+      const raw = await AsyncStorage.getItem(posKey(chapterId));
+      if (raw) savedPos = parseFloat(raw) || 0;
+    } catch {
+      /* ignore */
+    }
     try {
       player.replace(res.url);
       player.playbackRate = rate;
+      pendingSeekRef.current = savedPos; // seeked once the track loads
       player.play();
       setAudioReady(true);
     } catch {
       setAudioError('Could not play the narration.');
+    }
+  };
+
+  const seekBy = (delta: number) => {
+    const d = status.duration || 0;
+    const to = Math.max(0, Math.min(d ? d - 0.5 : (status.currentTime || 0) + delta, (status.currentTime || 0) + delta));
+    try {
+      player.seekTo(to);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const seekToFraction = (f: number) => {
+    const d = status.duration || 0;
+    if (!d || !isFinite(f)) return;
+    try {
+      player.seekTo(Math.max(0, Math.min(d, f * d)));
+    } catch {
+      /* ignore */
     }
   };
 
@@ -146,6 +225,9 @@ export default function ReaderScreen() {
   const toggleListen = () => {
     if (playing) {
       player.pause();
+      if ((status.currentTime || 0) > 1) {
+        AsyncStorage.setItem(posKey(chapterId), String(status.currentTime)).catch(() => {});
+      }
       return;
     }
     prepareAndPlay();
@@ -287,6 +369,68 @@ export default function ReaderScreen() {
                   />
                 </View>
               </View>
+
+              {audioReady && (
+                <>
+                  <View style={styles.progressRow}>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.timeText}>
+                      {fmtTime(status.currentTime)}
+                    </ThemedText>
+                    <Pressable
+                      style={styles.progressTrack}
+                      onLayout={(e) => setBarW(e.nativeEvent.layout.width)}
+                      onPress={(e) => {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const x = (e.nativeEvent as any).locationX;
+                        if (barW > 0 && typeof x === 'number') seekToFraction(x / barW);
+                      }}>
+                      <View style={[styles.progressBg, { backgroundColor: theme.backgroundElement }]} />
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            backgroundColor: theme.accent,
+                            width: `${status.duration ? Math.min(100, ((status.currentTime || 0) / status.duration) * 100) : 0}%`,
+                          },
+                        ]}
+                      />
+                    </Pressable>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.timeText}>
+                      {fmtTime(status.duration)}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.transportRow}>
+                    <Pressable
+                      onPress={() => seekBy(-15)}
+                      style={[styles.transportBtn, { backgroundColor: theme.backgroundElement }]}>
+                      <Ionicons name="play-back" size={16} color={theme.text} />
+                      <ThemedText type="small" style={{ color: theme.text }}>
+                        15s
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => seekBy(15)}
+                      style={[styles.transportBtn, { backgroundColor: theme.backgroundElement }]}>
+                      <ThemedText type="small" style={{ color: theme.text }}>
+                        15s
+                      </ThemedText>
+                      <Ionicons name="play-forward" size={16} color={theme.text} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setRepeat((v) => !v)}
+                      style={[
+                        styles.transportBtn,
+                        { backgroundColor: repeat ? theme.accent : theme.backgroundElement },
+                      ]}>
+                      <Ionicons name="repeat" size={16} color={repeat ? theme.accentOn : theme.text} />
+                      <ThemedText type="small" style={{ color: repeat ? theme.accentOn : theme.text }}>
+                        Repeat
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              )}
 
               <View style={styles.audioCtrlRow}>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -606,6 +750,20 @@ const styles = StyleSheet.create({
   },
   autoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   audioCtrlRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  timeText: { width: 42, textAlign: 'center' },
+  progressTrack: { flex: 1, height: 24, justifyContent: 'center' },
+  progressBg: { position: 'absolute', left: 0, right: 0, height: 5, borderRadius: 999 },
+  progressFill: { position: 'absolute', left: 0, height: 5, borderRadius: 999 },
+  transportRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, flexWrap: 'wrap' },
+  transportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
   speedChip: { paddingHorizontal: Spacing.three, paddingVertical: 6, borderRadius: 999, maxWidth: 220 },
   voiceGroup: { gap: Spacing.two },
   voiceWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
