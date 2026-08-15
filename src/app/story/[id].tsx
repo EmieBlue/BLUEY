@@ -15,6 +15,7 @@ import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import { hasPremiumChapters } from '@/data/stories';
 import { setStoryStatus } from '@/lib/publish-story';
+import { broadcastPush } from '@/lib/push';
 import type { Chapter, Story } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -31,6 +32,8 @@ export default function StoryDetailScreen() {
   // them flip into a reader's view to see the locked / paywall experience (and
   // run a test purchase) on their own story.
   const [previewAsReader, setPreviewAsReader] = useState(false);
+  const [notifyBusy, setNotifyBusy] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
 
   if (loading) return <LoadingView />;
 
@@ -68,6 +71,22 @@ export default function StoryDetailScreen() {
     await refresh();
     setOwnerBusy(false);
     if (res.error) setOwnerError(res.error);
+  };
+
+  const notifyReaders = async () => {
+    setNotifyBusy(true);
+    setNotifyMsg(null);
+    const r = await broadcastPush({
+      title: `📖 New on Bluey: ${story.title}`,
+      body: `${story.author.name} just posted — tap to read.`,
+      url: `/story/${story.id}`,
+    });
+    setNotifyBusy(false);
+    setNotifyMsg(
+      r.ok
+        ? `Sent to ${r.sent ?? 0} reader${r.sent === 1 ? '' : 's'}.`
+        : r.error || 'Could not send notifications.',
+    );
   };
 
   const openChapter = (chapter: Chapter) => {
@@ -203,6 +222,31 @@ export default function StoryDetailScreen() {
                   </ThemedText>
                 </Pressable>
               </View>
+              {story.status === 'published' && (
+                <Pressable
+                  onPress={notifyReaders}
+                  disabled={notifyBusy}
+                  style={[
+                    styles.previewBtn,
+                    { backgroundColor: theme.accent, opacity: notifyBusy ? 0.6 : 1 },
+                  ]}>
+                  {notifyBusy ? (
+                    <ActivityIndicator color={theme.accentOn} />
+                  ) : (
+                    <>
+                      <Ionicons name="notifications" size={18} color={theme.accentOn} />
+                      <ThemedText type="smallBold" style={{ color: theme.accentOn }}>
+                        Notify readers of this story
+                      </ThemedText>
+                    </>
+                  )}
+                </Pressable>
+              )}
+              {notifyMsg ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {notifyMsg}
+                </ThemedText>
+              ) : null}
               {hasPremiumChapters(story) && (
                 <Pressable
                   onPress={() => setPreviewAsReader((v) => !v)}

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectionHeader } from '@/components/section-header';
@@ -11,6 +12,7 @@ import { MaxContentWidth, Spacing, THEMES } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useThemeMode } from '@/context/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { enablePush, pushPermission, pushSupported } from '@/lib/push';
 
 export default function SettingsScreen() {
   const theme = useTheme();
@@ -20,6 +22,22 @@ export default function SettingsScreen() {
 
   const displayName =
     (user?.user_metadata?.display_name as string | undefined) || user?.email || '';
+
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifMsg, setNotifMsg] = useState<string | null>(null);
+  const [notifGranted, setNotifGranted] = useState(pushPermission() === 'granted');
+  const onEnableNotifs = async () => {
+    setNotifBusy(true);
+    setNotifMsg(null);
+    const r = await enablePush();
+    setNotifBusy(false);
+    if (r.ok) {
+      setNotifGranted(true);
+      setNotifMsg('You’re all set — we’ll let you know when new stories arrive.');
+    } else {
+      setNotifMsg(r.error || 'Could not turn on notifications.');
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -98,6 +116,44 @@ export default function SettingsScreen() {
               </ThemedText>
             )}
           </View>
+
+          {/* Notifications */}
+          {pushSupported() && (
+            <View style={styles.section}>
+              <SectionHeader title="Notifications" subtitle="Get alerted when new stories arrive" />
+              {notifGranted ? (
+                <View style={[styles.card, { backgroundColor: theme.backgroundElement }]}>
+                  <View style={styles.cardRow}>
+                    <Ionicons name="notifications" size={20} color={theme.accent} />
+                    <ThemedText type="small" style={styles.flex}>
+                      Notifications are on for this device.
+                    </ThemedText>
+                  </View>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={onEnableNotifs}
+                  disabled={notifBusy}
+                  style={({ pressed }) => [
+                    styles.signInBtn,
+                    { backgroundColor: theme.accent, opacity: notifBusy ? 0.6 : pressed ? 0.85 : 1 },
+                  ]}>
+                  {notifBusy ? (
+                    <ActivityIndicator color={theme.accentOn} />
+                  ) : (
+                    <ThemedText type="smallBold" style={{ color: theme.accentOn }}>
+                      Turn on notifications
+                    </ThemedText>
+                  )}
+                </Pressable>
+              )}
+              {notifMsg ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {notifMsg}
+                </ThemedText>
+              ) : null}
+            </View>
+          )}
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.footer}>
             {APP_NAME} · v1.0

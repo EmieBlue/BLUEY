@@ -39,3 +39,53 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(req).then((m) => m || Promise.reject(new Error('offline')))),
   );
 });
+
+// --- Web push: show a notification, then open the app on tap. Pushes are sent
+// without a payload; the SW fetches the latest message to display. ---
+self.addEventListener('push', (event) => {
+  event.waitUntil(
+    (async () => {
+      let title = 'Bluey';
+      let body = 'Something new to read on Bluey.';
+      let url = '/';
+      try {
+        const res = await fetch('/api/push-latest', { cache: 'no-store' });
+        if (res.ok) {
+          const d = await res.json();
+          if (d.title) title = d.title;
+          if (d.body) body = d.body;
+          if (d.url) url = d.url;
+        }
+      } catch {
+        /* use defaults */
+      }
+      await self.registration.showNotification(title, {
+        body,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        data: { url },
+      });
+    })(),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of clientList) {
+        if ('focus' in c) {
+          try {
+            c.navigate(url);
+          } catch {
+            /* ignore */
+          }
+          return c.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })(),
+  );
+});

@@ -12,6 +12,10 @@ export const APP_TAGLINE = 'Stories worth staying up for.';
  */
 export const SITE_URL = 'https://blueyclub.com';
 
+/** Web-push (VAPID) public key — safe to ship to the client; private key lives in Cloudflare. */
+export const VAPID_PUBLIC_KEY =
+  'BJJDmOeGHVWB1p-FIlzCqwy7FYaK5ERwCB23OBz586oNCuFtKLQBkDYbtpjdW58hf_rIVD3LDYZdylKKxXz9d0g';
+
 /**
  * Buy-the-book pricing (v1): a reader pays once to unlock a whole book's premium
  * chapters, forever. Flat price for every book; the amount actually charged lives
