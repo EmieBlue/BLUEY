@@ -49,6 +49,8 @@ if (html.includes(MARKER)) {
 const head = `    ${MARKER}
     <meta name="description" content="${tagline}" />
     <meta name="theme-color" content="${THEME_COLOR}" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -72,5 +74,8 @@ const head = `    ${MARKER}
 
 if (!html.includes('</head>')) throw new Error(`No </head> found in ${HTML_PATH}`);
 html = html.replace('</head>', head);
+// Repoint Expo's default favicon (.ico) at the Elyra icon so the browser tab
+// shows our mark instead of the placeholder.
+html = html.replace(/href="\/favicon\.ico"/g, 'href="/icon-192.png"');
 writeFileSync(HTML_PATH, html);
 console.log(`inject-web-head: injected branding/OG tags into ${HTML_PATH}`);

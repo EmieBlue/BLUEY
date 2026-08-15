@@ -3,7 +3,7 @@
  * in one spot (and so the Stripe phase has a single source of truth for price).
  */
 export const APP_NAME = 'Elyra';
-export const APP_TAGLINE = 'Stories worth staying up for.';
+export const APP_TAGLINE = 'Stories written from the heart, waiting to be discovered.';
 
 /**
  * The deployed web app + Netlify Functions origin. Used to reach the payment

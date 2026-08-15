@@ -1,7 +1,7 @@
 {
   "name": "Elyra",
   "short_name": "Elyra",
-  "description": "Stories worth staying up for.",
+  "description": "Stories written from the heart, waiting to be discovered.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
