@@ -20,7 +20,7 @@ export function BrandLogo({
     return (
       <View style={[{ width: size, height: size }, style]}>
         <Image
-          source={require('@/assets/images/bluey-logo-transparent.png')}
+          source={require('@/assets/images/elyra-mark.png')}
           style={StyleSheet.absoluteFill}
           contentFit="contain"
         />
@@ -31,8 +31,8 @@ export function BrandLogo({
     <View
       style={[styles.badge, { width: size, height: size, borderRadius: size * 0.22 }, style]}>
       <Image
-        source={require('@/assets/images/bluey-logo-mark.png')}
-        style={StyleSheet.absoluteFill}
+        source={require('@/assets/images/elyra-mark.png')}
+        style={styles.badgeImg}
         contentFit="contain"
       />
     </View>
@@ -42,8 +42,8 @@ export function BrandLogo({
 const styles = StyleSheet.create({
   badge: {
     overflow: 'hidden',
-    // Matches the logo artwork's forest-green field so any letterboxing from
-    // `contain` blends seamlessly with the image.
+    // Deep forest-green field behind the gold quill mark.
     backgroundColor: '#023025',
   },
+  badgeImg: { position: 'absolute', top: '15%', left: '15%', right: '15%', bottom: '15%' },
 });

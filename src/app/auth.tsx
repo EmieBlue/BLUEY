@@ -20,6 +20,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { LoginIntro } from '@/components/login-intro';
 import { Reveal } from '@/components/reveal';
 import { ThemedText } from '@/components/themed-text';
+import { Wordmark } from '@/components/wordmark';
 import { ThemedView } from '@/components/themed-view';
 import { APP_TAGLINE } from '@/config/app';
 import { Spacing } from '@/constants/theme';
@@ -129,13 +130,14 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={[styles.card, glassWeb]}>
             <Reveal active={!intro} delay={0} style={styles.group}>
-              <BrandLogo bare size={96} style={styles.logo} />
+              <BrandLogo bare size={72} style={styles.logo} />
+              <Wordmark size={34} color="#FFFFFF" style={styles.wordmark} />
               <ThemedText style={styles.title}>
                 {isSignup ? 'Create your\naccount' : 'Welcome\nback'}
               </ThemedText>
               <ThemedText style={styles.subtitle}>
                 {isSignup
-                  ? 'Join Bluey to save your library and read across devices.'
+                  ? 'Join Elyra to save your library and read across devices.'
                   : APP_TAGLINE}
               </ThemedText>
             </Reveal>
@@ -299,6 +301,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 18 },
   },
   logo: { marginBottom: Spacing.one },
+  wordmark: { marginTop: -Spacing.two },
   group: { gap: Spacing.three },
   title: { color: '#FFFFFF', fontSize: 40, lineHeight: 44, fontWeight: '800', letterSpacing: -1 },
   subtitle: {

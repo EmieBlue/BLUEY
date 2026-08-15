@@ -3,6 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { Wordmark } from '@/components/wordmark';
+
 /**
  * A short cinematic "starter" for the login (inspired by kaedano.app):
  *  1. the Bluey logo glows to life while a gold beam sweeps over it (like
@@ -13,7 +15,7 @@ import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
  * Tap anywhere to skip. Calls `onDone` once it finishes fading.
  */
 const NATIVE = Platform.OS !== 'web';
-const LOGO = require('@/assets/images/bluey-logo-transparent.png');
+const LOGO = require('@/assets/images/elyra-mark.png');
 
 export function LoginIntro({ onDone, covers = [] }: { onDone: () => void; covers?: string[] }) {
   const scan = useRef(new Animated.Value(0)).current; // 0..1 logo scan
@@ -91,6 +93,11 @@ export function LoginIntro({ onDone, covers = [] }: { onDone: () => void; covers
             style={StyleSheet.absoluteFill}
           />
         </Animated.View>
+      </Animated.View>
+
+      <Animated.View
+        style={{ marginTop: 6, opacity: scan.interpolate({ inputRange: [0.45, 1], outputRange: [0, 1] }) }}>
+        <Wordmark size={32} color="#FFFFFF" />
       </Animated.View>
 
       {shown.length > 0 && (

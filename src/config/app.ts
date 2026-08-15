@@ -2,7 +2,7 @@
  * Central place for product/branding/pricing values so they're easy to change
  * in one spot (and so the Stripe phase has a single source of truth for price).
  */
-export const APP_NAME = 'Bluey';
+export const APP_NAME = 'Elyra';
 export const APP_TAGLINE = 'Stories worth staying up for.';
 
 /**

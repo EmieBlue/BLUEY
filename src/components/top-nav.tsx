@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemedText } from '@/components/themed-text';
+import { Wordmark } from '@/components/wordmark';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -30,7 +31,10 @@ export function TopNav() {
         { backgroundColor: theme.background, borderBottomColor: theme.backgroundSelected },
       ]}>
       <View style={styles.inner}>
-        <BrandLogo bare size={34} />
+        <View style={styles.brand}>
+          <BrandLogo bare size={30} />
+          <Wordmark size={22} />
+        </View>
         <View style={styles.links}>
           {LINKS.map((l) => {
             const active = pathname === l.href;
@@ -68,6 +72,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   links: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   link: {
     flexDirection: 'row',

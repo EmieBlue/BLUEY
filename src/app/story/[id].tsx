@@ -77,7 +77,7 @@ export default function StoryDetailScreen() {
     setNotifyBusy(true);
     setNotifyMsg(null);
     const r = await broadcastPush({
-      title: `📖 New on Bluey: ${story.title}`,
+      title: `📖 New on Elyra: ${story.title}`,
       body: `${story.author.name} just posted — tap to read.`,
       url: `/story/${story.id}`,
     });

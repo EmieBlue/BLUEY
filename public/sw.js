@@ -45,8 +45,8 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   event.waitUntil(
     (async () => {
-      let title = 'Bluey';
-      let body = 'Something new to read on Bluey.';
+      let title = 'Elyra';
+      let body = 'Something new to read on Elyra.';
       let url = '/';
       try {
         const res = await fetch('/api/push-latest', { cache: 'no-store' });

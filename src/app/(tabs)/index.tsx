@@ -7,6 +7,7 @@ import { FeaturedHero } from '@/components/featured-hero';
 import { SectionHeader } from '@/components/section-header';
 import { ShelfCard } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
+import { Wordmark } from '@/components/wordmark';
 import { ThemedView } from '@/components/themed-view';
 import { WriteFab } from '@/components/write-fab';
 import { APP_TAGLINE } from '@/config/app';
@@ -52,7 +53,10 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <BrandLogo bare size={76} />
+            <View style={styles.brandRow}>
+              <BrandLogo bare size={52} />
+              <Wordmark size={34} />
+            </View>
             <ThemedText type="small" themeColor="textSecondary">
               {APP_TAGLINE}
             </ThemedText>
@@ -73,7 +77,7 @@ export default function HomeScreen() {
 
           {more.length > 0 && (
             <View style={styles.section}>
-              <SectionHeader title="More stories" subtitle="Fresh from Bluey" />
+              <SectionHeader title="More stories" subtitle="Fresh from Elyra" />
               <Shelf stories={more} />
             </View>
           )}
@@ -111,6 +115,7 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.two,
   },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   section: {
     gap: 0,
   },
