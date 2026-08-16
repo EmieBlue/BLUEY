@@ -29,6 +29,7 @@ import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
+import { supabase } from '@/lib/supabase';
 import { getChapterAudioUrl } from '@/lib/tts';
 
 const READING_WIDTH = 720;
@@ -66,6 +67,10 @@ export default function ReaderScreen() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [repeat, setRepeat] = useState(false);
   const [barW, setBarW] = useState(0);
+  // Chapter text is fetched separately, through a purchase-gated RPC — it is NOT
+  // in the loaded story list (premium paragraphs are column-locked in the DB).
+  const [content, setContent] = useState<string[] | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
   const autoStartedRef = useRef<string | null>(null);
   const pendingSeekRef = useRef<number | null>(null); // resume position to seek to once loaded
   const lastSaveRef = useRef(0);
@@ -99,6 +104,41 @@ export default function ReaderScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterId]);
+
+  // Fetch the chapter's text through the purchase-gated `get_chapter_content`
+  // RPC. The list query never carries premium paragraphs, so the reader asks the
+  // server for the text only once the chapter is actually readable (free / owned
+  // / purchased). A locked chapter never fetches — the paywall shows instead.
+  useEffect(() => {
+    if (!result || locked || !user) {
+      setContent(null);
+      return;
+    }
+    let cancelled = false;
+    setContentLoading(true);
+    setContent(null);
+    (async () => {
+      if (!supabase) {
+        // Demo / no-Supabase mode: fall back to any locally-bundled paragraphs.
+        if (!cancelled) {
+          setContent(result.chapter.paragraphs ?? []);
+          setContentLoading(false);
+        }
+        return;
+      }
+      const { data, error } = await supabase.rpc('get_chapter_content', {
+        p_story_id: storyId,
+        p_chapter_id: chapterId,
+      });
+      if (cancelled) return;
+      setContent(error ? [] : ((data as string[] | null) ?? []));
+      setContentLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.chapter.id, storyId, chapterId, locked, user?.id]);
 
   const handleEnd = () => {
     if (!result) return;
@@ -161,7 +201,7 @@ export default function ReaderScreen() {
       player.play();
       return;
     }
-    const paras = result.chapter.paragraphs;
+    const paras = content ?? [];
     if (!paras.length) return;
     setAudioError(null);
     setPreparing(true);
@@ -327,7 +367,7 @@ export default function ReaderScreen() {
                 {[
                   'Published',
                   fmtDate(story.createdAt),
-                  `${countWords(chapter.paragraphs).toLocaleString()} words`,
+                  content && content.length ? `${countWords(content).toLocaleString()} words` : null,
                   `${chapter.readingMinutes} min read`,
                 ]
                   .filter(Boolean)
@@ -467,11 +507,19 @@ export default function ReaderScreen() {
             ) : null}
             {chapter.videoUrl ? <ChapterVideo url={chapter.videoUrl} /> : null}
 
-            {chapter.paragraphs.map((para, i) => (
-              <ThemedText key={i} style={styles.paragraph}>
-                {para}
+            {contentLoading ? (
+              <ActivityIndicator style={{ marginVertical: Spacing.six }} color={theme.accent} />
+            ) : content && content.length === 0 ? (
+              <ThemedText themeColor="textSecondary" style={styles.paragraph}>
+                This chapter isn’t available to read yet.
               </ThemedText>
-            ))}
+            ) : (
+              (content ?? []).map((para, i) => (
+                <ThemedText key={i} style={styles.paragraph}>
+                  {para}
+                </ThemedText>
+              ))
+            )}
 
             {/* Prev / next navigation */}
             <View style={styles.navRow}>

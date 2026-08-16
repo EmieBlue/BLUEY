@@ -6,7 +6,13 @@ import type { Chapter, Genre, Story } from '@/data/types';
  * rest of the app stays unaware of the database shape.
  *
  * Query that produces these rows:
- *   supabase.from('stories').select('*, author:authors(*), chapters(*)')
+ *   supabase.from('stories').select(
+ *     '*, author:authors(*), chapters(id,order,title,reading_minutes,is_premium,image_url,video_url)')
+ *
+ * NB: chapter `paragraphs` is intentionally absent from the list query — premium
+ * text is column-locked in the DB and fetched (gated by purchase) via the
+ * `get_chapter_content` RPC only in the reader/editor. So `paragraphs` here is
+ * always `[]`; nothing in the list/home/detail views reads chapter text.
  */
 
 interface DbAuthor {
@@ -23,7 +29,9 @@ interface DbChapter {
   is_premium: boolean;
   image_url: string | null;
   video_url: string | null;
-  paragraphs: string[] | null;
+  // Not selected by the list query (column-locked); only the reader/editor fetch
+  // real paragraphs via the gated RPC. Optional so the list mapping type-checks.
+  paragraphs?: string[] | null;
 }
 
 export interface DbStory {

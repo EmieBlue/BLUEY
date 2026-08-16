@@ -7,7 +7,7 @@
  * cache when the network fails. Cross-origin requests (Supabase, Paystack) and
  * our Netlify functions are left completely untouched.
  */
-const CACHE = 'bluey-runtime-v1';
+const CACHE = 'elyra-runtime-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 

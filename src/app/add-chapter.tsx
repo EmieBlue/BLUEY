@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ChapterCanvas } from '@/components/chapter-canvas';
@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useStoriesData } from '@/context/stories';
 import { addChapterToStory, updateChapter, type ChapterDraft } from '@/lib/publish-story';
+import { supabase } from '@/lib/supabase';
 
 export default function AddChapterScreen() {
   const { storyId, chapterId } = useLocalSearchParams<{ storyId: string; chapterId?: string }>();
@@ -20,7 +21,7 @@ export default function AddChapterScreen() {
     existingChapter
       ? {
           title: existingChapter.title,
-          body: existingChapter.paragraphs.join('\n\n'),
+          body: '', // real text is fetched below via the gated RPC (owner-allowed)
           isPremium: existingChapter.isPremium,
           imageUrl: existingChapter.imageUrl,
           videoUrl: existingChapter.videoUrl,
@@ -29,6 +30,28 @@ export default function AddChapterScreen() {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prefilledRef = useRef(false);
+
+  // Chapter text isn't in the loaded story list (premium paragraphs are column-
+  // locked in the DB). When editing, pull the real body through the gated
+  // `get_chapter_content` RPC — the author owns the story, so it's allowed.
+  useEffect(() => {
+    if (!isEditing || !chapterId || !supabase || prefilledRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase!.rpc('get_chapter_content', {
+        p_story_id: storyId,
+        p_chapter_id: chapterId,
+      });
+      if (cancelled) return;
+      prefilledRef.current = true;
+      const paras = (data as string[] | null) ?? [];
+      setChapter((c) => ({ ...c, body: paras.join('\n\n') }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, chapterId, storyId]);
 
   const goToStory = () => router.replace({ pathname: '/story/[id]', params: { id: storyId } });
 

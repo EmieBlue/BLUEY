@@ -63,9 +63,14 @@ export function StoriesProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     if (!isSupabaseConfigured || !supabase) return; // local fallback already in place
     setLoading(true);
+    // NB: chapter `paragraphs` is intentionally NOT selected — premium chapter
+    // text is column-locked in the DB and only fetched (per chapter, gated by
+    // purchase) via the `get_chapter_content` RPC in the reader.
     const { data, error: queryError } = await supabase
       .from('stories')
-      .select('*, author:authors(*), chapters(*)');
+      .select(
+        '*, author:authors(*), chapters(id,order,title,reading_minutes,is_premium,image_url,video_url)',
+      );
     if (queryError || !data || data.length === 0) {
       // Never show a blank app: fall back to the bundled sample stories.
       setError(queryError ? queryError.message : null);
