@@ -74,6 +74,17 @@ export function hasPremiumChapters(story: Story): boolean {
   return story.chapters.some((c) => c.isPremium);
 }
 
+/**
+ * Buy-the-book gating: the paywall starts at the FIRST premium chapter, so a
+ * chapter is gated if any chapter at or before its `order` is premium. This
+ * stops a reader from skipping a locked chapter to read a later one the author
+ * happened to leave marked "free". Purchasers/owners bypass this (checked by the
+ * caller via `hasAccess`).
+ */
+export function isChapterGated(story: Story, chapter: Chapter): boolean {
+  return story.chapters.some((c) => c.isPremium && c.order <= chapter.order);
+}
+
 /** Human-friendly reads count, e.g. 18420 -> "18.4k". */
 export function formatReads(count: number): string {
   if (count < 1000) return `${count}`;

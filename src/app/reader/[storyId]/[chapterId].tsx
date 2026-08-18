@@ -27,6 +27,7 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useAppState } from '@/context/app-state';
 import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
+import { isChapterGated } from '@/data/stories';
 import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
@@ -83,7 +84,9 @@ export default function ReaderScreen() {
   const result = getChapter(storyId, chapterId);
   const isOwner = !!user && result?.story.ownerId === user.id;
   const hasAccess = result ? hasPurchased(result.story.id) || isOwner : false;
-  const locked = result ? result.chapter.isPremium && !hasAccess : false;
+  // Gated = this chapter is at or after the book's first premium chapter (so a
+  // free chapter placed after a locked one can't be used to skip the paywall).
+  const locked = result ? isChapterGated(result.story, result.chapter) && !hasAccess : false;
 
   // Remember where the reader got to (only once we know it's readable).
   useEffect(() => {
@@ -143,7 +146,7 @@ export default function ReaderScreen() {
   const handleEnd = () => {
     if (!result) return;
     const nx = getAdjacentChapter(result.story.id, result.chapter.id, 'next');
-    if (autoAdvance && nx && !(nx.isPremium && !hasAccess)) {
+    if (autoAdvance && nx && !(isChapterGated(result.story, nx) && !hasAccess)) {
       router.replace({
         pathname: '/reader/[storyId]/[chapterId]',
         params: { storyId: result.story.id, chapterId: nx.id, autoplay: '1', autoadvance: '1' },
@@ -311,7 +314,7 @@ export default function ReaderScreen() {
 
   const goToChapter = (target: Chapter | undefined) => {
     if (!target) return;
-    if (target.isPremium && !hasAccess) {
+    if (isChapterGated(story, target) && !hasAccess) {
       router.push({ pathname: '/paywall', params: { storyId: story.id } });
       return;
     }
@@ -561,7 +564,7 @@ export default function ReaderScreen() {
             <ScrollView style={styles.menuList}>
               {story.chapters.map((c) => {
                 const isCurrent = c.id === chapter.id;
-                const chLocked = c.isPremium && !hasAccess;
+                const chLocked = isChapterGated(story, c) && !hasAccess;
                 return (
                   <Pressable
                     key={c.id}

@@ -13,7 +13,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAppState } from '@/context/app-state';
 import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
-import { hasPremiumChapters } from '@/data/stories';
+import { hasPremiumChapters, isChapterGated } from '@/data/stories';
 import { setStoryStatus } from '@/lib/publish-story';
 import { broadcastPush } from '@/lib/push';
 import type { Chapter, Story } from '@/data/types';
@@ -95,7 +95,7 @@ export default function StoryDetailScreen() {
       router.push('/auth');
       return;
     }
-    if (chapter.isPremium && !hasAccess) {
+    if (isChapterGated(story, chapter) && !hasAccess) {
       router.push({ pathname: '/paywall', params: { storyId: story.id } });
       return;
     }
@@ -343,7 +343,7 @@ export default function StoryDetailScreen() {
                 <ChapterRow
                   key={chapter.id}
                   chapter={chapter}
-                  locked={chapter.isPremium && !hasAccess}
+                  locked={isChapterGated(story, chapter) && !hasAccess}
                   isCurrent={chapter.id === progressChapterId}
                   onPress={() => openChapter(chapter)}
                   onEdit={

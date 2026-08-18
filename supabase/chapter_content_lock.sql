@@ -17,6 +17,11 @@
 --    (definer) so it can read the column the calling role cannot; auth.uid()
 --    still identifies the caller for the access check. Returns NULL when the
 --    caller may not read the chapter.
+--
+--    Buy-the-book gating: the paywall begins at the FIRST premium chapter and
+--    covers that chapter AND everything ordered after it — so a free chapter
+--    placed after a locked one can't be used to skip the paywall. A chapter is
+--    free to read only when NO premium chapter exists at or before its `order`.
 create or replace function public.get_chapter_content(p_story_id text, p_chapter_id text)
 returns text[]
 language sql
@@ -30,11 +35,16 @@ as $$
   where c.story_id = p_story_id
     and c.id = p_chapter_id
     and (
-      c.is_premium = false
-      or s.owner_id = auth.uid()
+      s.owner_id = auth.uid()
       or exists (
         select 1 from public.purchases p
         where p.user_id = auth.uid() and p.story_id = s.id
+      )
+      or not exists (
+        select 1 from public.chapters cp
+        where cp.story_id = c.story_id
+          and cp.is_premium = true
+          and cp."order" <= c."order"
       )
     )
 $$;
