@@ -20,7 +20,6 @@ import { BrandLogo } from '@/components/brand-logo';
 import { LoginIntro } from '@/components/login-intro';
 import { Reveal } from '@/components/reveal';
 import { ThemedText } from '@/components/themed-text';
-import { Wordmark } from '@/components/wordmark';
 import { ThemedView } from '@/components/themed-view';
 import { APP_TAGLINE } from '@/config/app';
 import { Spacing } from '@/constants/theme';
@@ -130,8 +129,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={[styles.card, glassWeb]}>
             <Reveal active={!intro} delay={0} style={styles.group}>
-              <BrandLogo bare size={72} style={styles.logo} />
-              <Wordmark size={34} color="#FFFFFF" style={styles.wordmark} />
+              <BrandLogo full size={148} style={styles.logo} />
               <ThemedText style={styles.title}>
                 {isSignup ? 'Create your\naccount' : 'Welcome\nback'}
               </ThemedText>

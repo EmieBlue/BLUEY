@@ -4,30 +4,30 @@
     "slug": "Bluy",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/bluey-logo.png",
+    "icon": "./assets/images/elyra-icon.png",
     "scheme": "bluy",
     "userInterfaceStyle": "automatic",
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#023025",
-        "foregroundImage": "./assets/images/bluey-logo.png"
+        "backgroundColor": "#012f24",
+        "foregroundImage": "./assets/images/elyra-adaptive.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/bluey-logo.png"
+      "favicon": "./assets/images/elyra-icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#023025",
-          "image": "./assets/images/bluey-logo.png",
+          "backgroundColor": "#012f24",
+          "image": "./assets/images/elyra-logo.png",
           "imageWidth": 200,
           "android": {
-            "image": "./assets/images/bluey-logo.png",
+            "image": "./assets/images/elyra-logo.png",
             "imageWidth": 200
           }
         }
