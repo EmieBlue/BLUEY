@@ -20,7 +20,9 @@ async function hmacSha512Hex(secret, message) {
 export async function onRequestPost({ request, env }) {
   const raw = await request.text();
   const signature = request.headers.get('x-paystack-signature') || '';
-  const expected = await hmacSha512Hex(env.PAYSTACK_SECRET_KEY, raw);
+  // Trim defensively — a stray space/newline in the pasted secret would make the
+  // HMAC mismatch Paystack's and silently reject every genuine webhook.
+  const expected = await hmacSha512Hex((env.PAYSTACK_SECRET_KEY || '').trim(), raw);
   if (!signature || signature !== expected) {
     return new Response('Invalid signature', { status: 401 });
   }
