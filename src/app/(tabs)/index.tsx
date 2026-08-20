@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedOrbs } from '@/components/animated-orbs';
+import { DepthBackground } from '@/components/depth-background';
 import { BrandLogo } from '@/components/brand-logo';
 import { FeaturedHero } from '@/components/featured-hero';
 import { SectionHeader } from '@/components/section-header';
@@ -41,6 +41,7 @@ export default function HomeScreen() {
   // are marked with a badge) and the public still only sees what's published.
   const featured = stories.find((s) => s.coverImageUrl) ?? stories[0];
   const more = featured ? stories.filter((s) => s.id !== featured.id) : stories;
+  const coverUrls = stories.filter((s) => s.coverImageUrl).map((s) => s.coverImageUrl as string);
 
   const continueReading = Object.keys(progress)
     .map((id) => getStoryById(id))
@@ -48,7 +49,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AnimatedOrbs subtle />
+      <DepthBackground subtle covers={coverUrls} />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>

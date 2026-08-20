@@ -15,10 +15,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedOrbs } from '@/components/animated-orbs';
 import { BrandLogo } from '@/components/brand-logo';
+import { DepthBackground } from '@/components/depth-background';
 import { LoginIntro } from '@/components/login-intro';
 import { Reveal } from '@/components/reveal';
+import { TiltCard } from '@/components/tilt-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_TAGLINE } from '@/config/app';
@@ -59,8 +60,12 @@ export default function AuthScreen() {
 
   const isSignup = mode === 'signup';
 
-  // A real book cover (photo) as the atmospheric background; gradient if none.
-  const heroCover = stories.find((s) => s.status !== 'draft' && s.coverImageUrl)?.coverImageUrl;
+  // Real book covers for the atmospheric background: one blurred as the far
+  // "wall", the rest floating in 3D depth (DepthBackground).
+  const coverUrls = stories
+    .filter((s) => s.status !== 'draft' && s.coverImageUrl)
+    .map((s) => s.coverImageUrl as string);
+  const heroCover = coverUrls[0];
 
   const onSubmit = async () => {
     setError(null);
@@ -118,7 +123,7 @@ export default function AuthScreen() {
         <LinearGradient colors={HERO_GRADIENT} style={StyleSheet.absoluteFill} />
       )}
       <LinearGradient colors={SCRIM} style={StyleSheet.absoluteFill} />
-      <AnimatedOrbs />
+      <DepthBackground covers={coverUrls} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -127,6 +132,7 @@ export default function AuthScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
+          <TiltCard radius={24} style={styles.tiltWrap}>
           <View style={[styles.card, glassWeb]}>
             <Reveal active={!intro} delay={0} style={styles.group}>
               <BrandLogo full size={148} style={styles.logo} />
@@ -221,6 +227,7 @@ export default function AuthScreen() {
               </Pressable>
             </Reveal>
           </View>
+          </TiltCard>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -283,6 +290,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.four,
   },
+  tiltWrap: { width: '100%', maxWidth: 420 },
   card: {
     width: '100%',
     maxWidth: 420,
