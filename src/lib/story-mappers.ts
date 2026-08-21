@@ -46,6 +46,7 @@ export interface DbStory {
   cover_emoji: string | null;
   is_complete: boolean;
   rating: number | null;
+  ratings_count: number | null;
   reads_count: number | null;
   owner_id: string | null;
   cover_image_url: string | null;
@@ -95,6 +96,7 @@ export function mapStory(row: DbStory): Story {
     coverEmoji: row.cover_emoji ?? '📖',
     isComplete: row.is_complete,
     rating: row.rating ?? 0,
+    ratingsCount: row.ratings_count ?? 0,
     readsCount: row.reads_count ?? 0,
     ownerId: row.owner_id ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,

@@ -73,8 +73,10 @@ export interface Story {
   coverEmoji: string;
   /** Serial only: whether the author has marked it finished. */
   isComplete: boolean;
-  /** Average reader rating, 0–5. */
+  /** Average reader rating, 0–5 (0 when there are no ratings yet). */
   rating: number;
+  /** How many readers have rated this book (0 = show "New" instead of stars). */
+  ratingsCount: number;
   /** Total reads, used for "popular" sorting and social proof. */
   readsCount: number;
   /** Auth user id of the author who created it in-app (undefined for seeded samples). */

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { LoadingView } from '@/components/loading-view';
+import { ReviewsSection } from '@/components/reviews-section';
 import { StoryCover } from '@/components/story-cover';
 import { StoryMeta } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
@@ -359,6 +360,8 @@ export default function StoryDetailScreen() {
               ))}
             </View>
           )}
+
+          <ReviewsSection storyId={story.id} canModerate={isOwner} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

@@ -34,10 +34,18 @@ export function StoryMeta({ story }: { story: Story }) {
   const theme = useTheme();
   return (
     <View style={styles.metaRow}>
-      <Ionicons name="star" size={13} color="#F5A623" />
-      <ThemedText type="small" themeColor="textSecondary">
-        {story.rating.toFixed(1)}
-      </ThemedText>
+      {story.ratingsCount > 0 ? (
+        <>
+          <Ionicons name="star" size={13} color="#F5A623" />
+          <ThemedText type="small" themeColor="textSecondary">
+            {story.rating.toFixed(1)}
+          </ThemedText>
+        </>
+      ) : (
+        <ThemedText type="small" themeColor="textSecondary">
+          New
+        </ThemedText>
+      )}
       <ThemedText type="small" themeColor="textSecondary">
         · {formatReads(story.readsCount)} reads
       </ThemedText>

@@ -79,6 +79,7 @@ export default function WriteScreen() {
     coverImageUrl,
     isComplete: false,
     rating: 0,
+    ratingsCount: 0,
     readsCount: 0,
     chapters: [],
   } as Story;
