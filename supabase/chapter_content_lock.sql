@@ -55,7 +55,7 @@ $$;
 --    re-grant SELECT on every column EXCEPT paragraphs. Keep this list in sync if
 --    columns are ever added to public.chapters.
 revoke select on public.chapters from anon, authenticated;
-grant select (story_id, id, "order", title, reading_minutes, is_premium, image_url, video_url)
+grant select (story_id, id, "order", title, reading_minutes, is_premium, image_url, video_url, page_count)
   on public.chapters to anon, authenticated;
 
 -- 3) Let the app call the gated reader.

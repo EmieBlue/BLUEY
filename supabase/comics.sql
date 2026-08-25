@@ -12,6 +12,12 @@ alter table public.stories  add column if not exists kind text not null default 
   check (kind in ('novel', 'comic'));
 alter table public.chapters add column if not exists page_count int not null default 0;
 
+-- IMPORTANT: chapters SELECT is column-locked (see chapter_content_lock.sql), so a
+-- newly-added column is DENIED to the API roles until granted — and the whole
+-- stories list query (which selects page_count) fails with "permission denied for
+-- table chapters" until this runs.
+grant select (page_count) on public.chapters to anon, authenticated;
+
 -- 2) Private bucket for comic pages.
 insert into storage.buckets (id, name, public)
 values ('comics', 'comics', false)
