@@ -61,6 +61,7 @@ export default function WriteScreen() {
   const [coverEmoji] = useState(existing?.coverEmoji ?? '');
   const [coverColor] = useState(existing?.coverColor ?? COVER_COLORS[0]);
   const [coverImageUrl, setCoverImageUrl] = useState<string | undefined>(existing?.coverImageUrl);
+  const [kind, setKind] = useState<'novel' | 'comic'>(existing?.kind ?? 'novel');
 
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -126,6 +127,7 @@ export default function WriteScreen() {
       coverColor,
       coverImageUrl,
       format: 'serial' as const,
+      kind,
       status: 'draft' as const,
       language,
       storyType,
@@ -230,6 +232,14 @@ export default function WriteScreen() {
       <Field label="Description *">
         <Input value={description} onChangeText={setDescription} placeholder="What's your story about?" multiline minHeight={100} />
       </Field>
+      {!isEditing && (
+        <Field label="Format">
+          <View style={styles.chips}>
+            <Chip label="📖 Novel (text)" active={kind === 'novel'} onPress={() => setKind('novel')} />
+            <Chip label="🖼️ Comic (pages)" active={kind === 'comic'} onPress={() => setKind('comic')} />
+          </View>
+        </Field>
+      )}
       <Field label="Language">
         <SingleChips options={LANGUAGES} value={language} onSelect={setLanguage} />
       </Field>

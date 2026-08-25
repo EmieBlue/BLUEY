@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +18,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { ChapterDraft } from '@/lib/publish-story';
+import { uploadComicPage } from '@/lib/upload-comic-page';
 import { uploadCover } from '@/lib/upload-cover';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -28,6 +30,10 @@ interface ChapterCanvasProps {
   headerLabel?: string;
   busy?: boolean;
   error?: string | null;
+  /** Comic book → collect ordered page images instead of a text body. */
+  comic?: boolean;
+  /** Editing a comic chapter: its existing pages ({path to save, url to preview}). */
+  initialPages?: { path: string; url: string }[];
 }
 
 /** Distraction-free chapter editor with optional image/video at the top. */
@@ -39,11 +45,27 @@ export function ChapterCanvas({
   headerLabel = 'Write',
   busy = false,
   error,
+  comic = false,
+  initialPages,
 }: ChapterCanvasProps) {
   const theme = useTheme();
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  // Comic pages: {path} is stored, {preview} is a displayable URL for the editor.
+  const [pages, setPages] = useState<{ path: string; preview: string }[]>([]);
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    if (loadedRef.current || !initialPages || initialPages.length === 0) return;
+    loadedRef.current = true;
+    setPages(initialPages.map((p) => ({ path: p.path, preview: p.url })));
+  }, [initialPages]);
+
+  const syncPages = (next: { path: string; preview: string }[]) => {
+    setPages(next);
+    onChange({ pages: next.map((p) => p.path) });
+  };
 
   const pickImage = async () => {
     setMediaError(null);
@@ -57,6 +79,37 @@ export function ChapterCanvas({
     setUploading(false);
     if (up.error) setMediaError(up.error);
     else onChange({ imageUrl: up.url });
+  };
+
+  const addPages = async () => {
+    setMediaError(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      quality: 0.9,
+    });
+    if (result.canceled || !result.assets?.length || !user) return;
+    setUploading(true);
+    const added: { path: string; preview: string }[] = [];
+    for (const asset of result.assets) {
+      const up = await uploadComicPage(asset.uri, user.id);
+      if (up.error) {
+        setMediaError(up.error);
+        break;
+      }
+      if (up.path) added.push({ path: up.path, preview: asset.uri });
+    }
+    setUploading(false);
+    if (added.length) syncPages([...pages, ...added]);
+  };
+
+  const removePage = (i: number) => syncPages(pages.filter((_, idx) => idx !== i));
+  const movePage = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= pages.length) return;
+    const next = [...pages];
+    [next[i], next[j]] = [next[j], next[i]];
+    syncPages(next);
   };
 
   return (
@@ -92,57 +145,101 @@ export function ChapterCanvas({
             style={[styles.titleInput, { backgroundColor: theme.backgroundElement, color: theme.text }]}
           />
 
-          {/* Media at the top of the chapter */}
-          <View style={styles.mediaBar}>
-            {value.imageUrl ? (
-              <View style={styles.thumbWrap}>
-                <NaturalImage uri={value.imageUrl} style={styles.thumb} />
-                <Pressable onPress={() => onChange({ imageUrl: undefined })} hitSlop={6}>
-                  <ThemedText type="small" themeColor="accent">
-                    Remove image
+          {comic ? (
+            <View style={styles.pagesWrap}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Comic pages — add them in reading order (top to bottom). Readers scroll down through them.
+              </ThemedText>
+              {pages.map((p, i) => (
+                <View key={p.path} style={[styles.pageRow, { borderColor: theme.backgroundSelected }]}>
+                  <ThemedText type="smallBold" themeColor="textSecondary" style={styles.pageNum}>
+                    {i + 1}
                   </ThemedText>
-                </Pressable>
-              </View>
-            ) : (
+                  <Image source={{ uri: p.preview }} style={styles.pageThumb} contentFit="cover" />
+                  <View style={styles.pageActions}>
+                    <Pressable onPress={() => movePage(i, -1)} hitSlop={6} disabled={i === 0}>
+                      <Ionicons name="arrow-up" size={20} color={i === 0 ? theme.backgroundSelected : theme.text} />
+                    </Pressable>
+                    <Pressable onPress={() => movePage(i, 1)} hitSlop={6} disabled={i === pages.length - 1}>
+                      <Ionicons name="arrow-down" size={20} color={i === pages.length - 1 ? theme.backgroundSelected : theme.text} />
+                    </Pressable>
+                    <Pressable onPress={() => removePage(i)} hitSlop={6}>
+                      <Ionicons name="trash-outline" size={20} color="#C0392B" />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
               <Pressable
-                onPress={pickImage}
+                onPress={addPages}
                 disabled={uploading}
                 style={[styles.mediaBtn, { borderColor: theme.backgroundSelected }]}>
                 {uploading ? (
                   <ActivityIndicator color={theme.accent} />
                 ) : (
                   <>
-                    <Ionicons name="image-outline" size={18} color={theme.accent} />
+                    <Ionicons name="images-outline" size={18} color={theme.accent} />
                     <ThemedText type="small" themeColor="accent">
-                      Add image
+                      {pages.length ? 'Add more pages' : 'Add pages'}
                     </ThemedText>
                   </>
                 )}
               </Pressable>
-            )}
-          </View>
+            </View>
+          ) : (
+            <>
+              {/* Media at the top of the chapter */}
+              <View style={styles.mediaBar}>
+                {value.imageUrl ? (
+                  <View style={styles.thumbWrap}>
+                    <NaturalImage uri={value.imageUrl} style={styles.thumb} />
+                    <Pressable onPress={() => onChange({ imageUrl: undefined })} hitSlop={6}>
+                      <ThemedText type="small" themeColor="accent">
+                        Remove image
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={pickImage}
+                    disabled={uploading}
+                    style={[styles.mediaBtn, { borderColor: theme.backgroundSelected }]}>
+                    {uploading ? (
+                      <ActivityIndicator color={theme.accent} />
+                    ) : (
+                      <>
+                        <Ionicons name="image-outline" size={18} color={theme.accent} />
+                        <ThemedText type="small" themeColor="accent">
+                          Add image
+                        </ThemedText>
+                      </>
+                    )}
+                  </Pressable>
+                )}
+              </View>
 
-          <ThemedText type="small" themeColor="textSecondary">
-            Video link (optional — paste a YouTube URL)
-          </ThemedText>
-          <TextInput
-            value={value.videoUrl ?? ''}
-            onChangeText={(t) => onChange({ videoUrl: t || undefined })}
-            placeholder="https://youtube.com/watch?v=…"
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            style={[styles.videoInput, { backgroundColor: theme.backgroundElement, color: theme.text }]}
-          />
+              <ThemedText type="small" themeColor="textSecondary">
+                Video link (optional — paste a YouTube URL)
+              </ThemedText>
+              <TextInput
+                value={value.videoUrl ?? ''}
+                onChangeText={(t) => onChange({ videoUrl: t || undefined })}
+                placeholder="https://youtube.com/watch?v=…"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="none"
+                style={[styles.videoInput, { backgroundColor: theme.backgroundElement, color: theme.text }]}
+              />
 
-          <TextInput
-            value={value.body}
-            onChangeText={(t) => onChange({ body: t })}
-            placeholder="Start writing… Leave a blank line between paragraphs."
-            placeholderTextColor={theme.textSecondary}
-            multiline
-            textAlignVertical="top"
-            style={[styles.bodyInput, { color: theme.text }]}
-          />
+              <TextInput
+                value={value.body}
+                onChangeText={(t) => onChange({ body: t })}
+                placeholder="Start writing… Leave a blank line between paragraphs."
+                placeholderTextColor={theme.textSecondary}
+                multiline
+                textAlignVertical="top"
+                style={[styles.bodyInput, { color: theme.text }]}
+              />
+            </>
+          )}
 
           <Pressable
             onPress={() => onChange({ isPremium: !value.isPremium })}
@@ -216,4 +313,16 @@ const styles = StyleSheet.create({
     minHeight: 360,
   },
   premiumRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.three },
+  pagesWrap: { gap: Spacing.two, marginTop: Spacing.two },
+  pageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: Spacing.two,
+  },
+  pageNum: { width: 22, textAlign: 'center' },
+  pageThumb: { width: 60, height: 84, borderRadius: 8, backgroundColor: '#0002' },
+  pageActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, marginLeft: 'auto' },
 });

@@ -53,8 +53,10 @@ export interface Chapter {
   imageUrl?: string;
   /** Optional video link (e.g. YouTube) shown at the top of the chapter. */
   videoUrl?: string;
-  /** The chapter body, one string per paragraph. */
+  /** The chapter body, one string per paragraph. (Comics: holds page image paths.) */
   paragraphs: string[];
+  /** Comic chapters only: how many page images this chapter has (shown as "N pages"). */
+  pageCount?: number;
 }
 
 export interface Story {
@@ -83,6 +85,8 @@ export interface Story {
   ownerId?: string;
   /** Uploaded cover image URL; when set it's shown instead of the emoji+color cover. */
   coverImageUrl?: string;
+  /** Book kind: a text 'novel' (default) or an image-based 'comic' (webtoon). */
+  kind?: 'novel' | 'comic';
   /** 'published' (public) or 'draft' (visible only to the owner). */
   status?: 'draft' | 'published';
   /** When the story was created (ISO), shown as the "Published" date. */

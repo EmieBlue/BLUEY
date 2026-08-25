@@ -30,6 +30,7 @@ import { useStoriesData } from '@/context/stories';
 import { isChapterGated } from '@/data/stories';
 import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
+import { fetchComicPages } from '@/lib/comic';
 import { supabase } from '@/lib/supabase';
 import { getChapterAudioUrl } from '@/lib/tts';
 
@@ -72,6 +73,8 @@ export default function ReaderScreen() {
   // in the loaded story list (premium paragraphs are column-locked in the DB).
   const [content, setContent] = useState<string[] | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
+  // Comic books: page image URLs (signed), fetched instead of text.
+  const [comicPages, setComicPages] = useState<string[] | null>(null);
   const autoStartedRef = useRef<string | null>(null);
   const pendingSeekRef = useRef<number | null>(null); // resume position to seek to once loaded
   const lastSaveRef = useRef(0);
@@ -87,6 +90,7 @@ export default function ReaderScreen() {
   // Gated = this chapter is at or after the book's first premium chapter (so a
   // free chapter placed after a locked one can't be used to skip the paywall).
   const locked = result ? isChapterGated(result.story, result.chapter) && !hasAccess : false;
+  const isComic = result?.story.kind === 'comic';
 
   // Remember where the reader got to (only once we know it's readable).
   useEffect(() => {
@@ -115,12 +119,22 @@ export default function ReaderScreen() {
   useEffect(() => {
     if (!result || locked || !user) {
       setContent(null);
+      setComicPages(null);
       return;
     }
     let cancelled = false;
     setContentLoading(true);
     setContent(null);
+    setComicPages(null);
     (async () => {
+      // Comic → fetch signed page-image URLs (gated the same way as text).
+      if (isComic) {
+        const res = await fetchComicPages(storyId, chapterId);
+        if (cancelled) return;
+        setComicPages(res.pages);
+        setContentLoading(false);
+        return;
+      }
       if (!supabase) {
         // Demo / no-Supabase mode: fall back to any locally-bundled paragraphs.
         if (!cancelled) {
@@ -141,7 +155,7 @@ export default function ReaderScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.chapter.id, storyId, chapterId, locked, user?.id]);
+  }, [result?.chapter.id, storyId, chapterId, locked, user?.id, isComic]);
 
   const handleEnd = () => {
     if (!result) return;
@@ -370,8 +384,14 @@ export default function ReaderScreen() {
                 {[
                   'Published',
                   fmtDate(story.createdAt),
-                  content && content.length ? `${countWords(content).toLocaleString()} words` : null,
-                  `${chapter.readingMinutes} min read`,
+                  isComic
+                    ? chapter.pageCount
+                      ? `${chapter.pageCount} pages`
+                      : null
+                    : content && content.length
+                      ? `${countWords(content).toLocaleString()} words`
+                      : null,
+                  isComic ? null : `${chapter.readingMinutes} min read`,
                 ]
                   .filter(Boolean)
                   .join('  ·  ')}
@@ -382,6 +402,7 @@ export default function ReaderScreen() {
             </View>
             <View style={[styles.divider, { backgroundColor: theme.backgroundSelected }]} />
 
+            {!isComic && (
             <View style={[styles.audioPanel, { borderColor: theme.backgroundElement }]}>
               <View style={styles.audioTopRow}>
                 <Pressable
@@ -504,14 +525,25 @@ export default function ReaderScreen() {
                 </ThemedText>
               )}
             </View>
+            )}
 
-            {chapter.imageUrl ? (
+            {!isComic && chapter.imageUrl ? (
               <NaturalImage uri={chapter.imageUrl} style={styles.chapterImage} />
             ) : null}
-            {chapter.videoUrl ? <ChapterVideo url={chapter.videoUrl} /> : null}
+            {!isComic && chapter.videoUrl ? <ChapterVideo url={chapter.videoUrl} /> : null}
 
             {contentLoading ? (
               <ActivityIndicator style={{ marginVertical: Spacing.six }} color={theme.accent} />
+            ) : isComic ? (
+              comicPages && comicPages.length > 0 ? (
+                comicPages.map((uri, i) => (
+                  <NaturalImage key={i} uri={uri} radius={0} style={styles.comicPage} />
+                ))
+              ) : (
+                <ThemedText themeColor="textSecondary" style={styles.paragraph}>
+                  This chapter isn’t available to read yet.
+                </ThemedText>
+              )
             ) : content && content.length === 0 ? (
               <ThemedText themeColor="textSecondary" style={styles.paragraph}>
                 This chapter isn’t available to read yet.
@@ -835,6 +867,7 @@ const styles = StyleSheet.create({
     lineHeight: 33,
     marginBottom: 20,
   },
+  comicPage: { marginBottom: 0 },
   navRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

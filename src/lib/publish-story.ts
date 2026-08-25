@@ -13,6 +13,8 @@ export interface ChapterDraft {
   isPremium: boolean;
   imageUrl?: string;
   videoUrl?: string;
+  /** Comic chapters: ordered page-image object paths (private `comics` bucket). */
+  pages?: string[];
 }
 
 export interface StoryDraft {
@@ -24,6 +26,7 @@ export interface StoryDraft {
   coverColor: string;
   coverImageUrl?: string;
   format: StoryFormat;
+  kind?: 'novel' | 'comic';
   status?: 'draft' | 'published';
   language?: string;
   storyType?: string;
@@ -64,6 +67,23 @@ function readingMinutes(paragraphs: string[]): number {
   return Math.max(1, Math.round(words / 200));
 }
 
+/**
+ * Build the stored content fields for a chapter. A comic chapter carries page
+ * image paths (in `pages`) which go into `paragraphs` (so they inherit the
+ * premium hard-lock); a text chapter splits its body into paragraphs.
+ */
+function chapterContent(c: ChapterDraft): {
+  paragraphs: string[];
+  page_count: number;
+  reading_minutes: number;
+} {
+  if (c.pages && c.pages.length > 0) {
+    return { paragraphs: c.pages, page_count: c.pages.length, reading_minutes: 0 };
+  }
+  const paragraphs = splitParagraphs(c.body);
+  return { paragraphs, page_count: 0, reading_minutes: readingMinutes(paragraphs) };
+}
+
 export async function publishStory(
   draft: StoryDraft,
   user: { id: string; displayName: string },
@@ -91,6 +111,7 @@ export async function publishStory(
     cover_color: draft.coverColor,
     cover_emoji: draft.coverEmoji || '📖',
     cover_image_url: draft.coverImageUrl ?? null,
+    kind: draft.kind ?? 'novel',
     status: draft.status ?? 'published',
     language: draft.language ?? null,
     story_type: draft.storyType ?? null,
@@ -107,19 +128,20 @@ export async function publishStory(
 
   // 3) Chapters (a story may start with none — parts can be added later).
   const rows = draft.chapters
-    .filter((c) => c.body.trim() || c.title.trim())
+    .filter((c) => c.body.trim() || c.title.trim() || (c.pages && c.pages.length > 0))
     .map((c, i) => {
-      const paragraphs = splitParagraphs(c.body);
+      const content = chapterContent(c);
       return {
         story_id: storyId,
         id: `ch${i + 1}`,
         order: i + 1,
         title: c.title.trim() || `Chapter ${i + 1}`,
-        reading_minutes: readingMinutes(paragraphs),
+        reading_minutes: content.reading_minutes,
         is_premium: c.isPremium,
         image_url: c.imageUrl ?? null,
         video_url: c.videoUrl ?? null,
-        paragraphs,
+        paragraphs: content.paragraphs,
+        page_count: content.page_count,
       };
     });
   if (rows.length > 0) {
@@ -154,17 +176,18 @@ export async function addChapterToStory(
     .limit(1);
   if (qErr) return { error: qErr.message };
   const nextOrder = ((last?.[0] as { order?: number } | undefined)?.order ?? 0) + 1;
-  const paragraphs = splitParagraphs(chapter.body);
+  const content = chapterContent(chapter);
   const { error } = await supabase.from('chapters').insert({
     story_id: storyId,
     id: `c${Date.now().toString(36)}`,
     order: nextOrder,
     title: chapter.title.trim() || `Chapter ${nextOrder}`,
-    reading_minutes: readingMinutes(paragraphs),
+    reading_minutes: content.reading_minutes,
     is_premium: chapter.isPremium,
     image_url: chapter.imageUrl ?? null,
     video_url: chapter.videoUrl ?? null,
-    paragraphs,
+    paragraphs: content.paragraphs,
+    page_count: content.page_count,
   });
   return error ? { error: error.message } : {};
 }
@@ -204,16 +227,17 @@ export async function updateChapter(
   chapter: ChapterDraft,
 ): Promise<{ error?: string }> {
   if (!supabase) return { error: 'Not connected to the database.' };
-  const paragraphs = splitParagraphs(chapter.body);
+  const content = chapterContent(chapter);
   const { error } = await supabase
     .from('chapters')
     .update({
       title: chapter.title.trim() || 'Untitled',
-      reading_minutes: readingMinutes(paragraphs),
+      reading_minutes: content.reading_minutes,
       is_premium: chapter.isPremium,
       image_url: chapter.imageUrl ?? null,
       video_url: chapter.videoUrl ?? null,
-      paragraphs,
+      paragraphs: content.paragraphs,
+      page_count: content.page_count,
     })
     .eq('story_id', storyId)
     .eq('id', chapterId);

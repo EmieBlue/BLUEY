@@ -403,7 +403,10 @@ function ChapterRow({
           {chapter.title}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary">
-          {chapter.readingMinutes} min read{isCurrent ? ' · continue' : ''}
+          {chapter.pageCount && chapter.pageCount > 0
+            ? `${chapter.pageCount} pages`
+            : `${chapter.readingMinutes} min read`}
+          {isCurrent ? ' · continue' : ''}
         </ThemedText>
       </View>
       {onEdit && (

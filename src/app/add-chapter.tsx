@@ -6,6 +6,7 @@ import { ChapterCanvas } from '@/components/chapter-canvas';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useStoriesData } from '@/context/stories';
+import { fetchComicPages } from '@/lib/comic';
 import { addChapterToStory, updateChapter, type ChapterDraft } from '@/lib/publish-story';
 import { supabase } from '@/lib/supabase';
 
@@ -14,6 +15,7 @@ export default function AddChapterScreen() {
   const router = useRouter();
   const { refresh, getStoryById } = useStoriesData();
   const story = getStoryById(storyId);
+  const comic = story?.kind === 'comic';
   const existingChapter = chapterId ? story?.chapters.find((c) => c.id === chapterId) : undefined;
   const isEditing = !!existingChapter;
 
@@ -21,20 +23,23 @@ export default function AddChapterScreen() {
     existingChapter
       ? {
           title: existingChapter.title,
-          body: '', // real text is fetched below via the gated RPC (owner-allowed)
+          body: '', // real content is fetched below via the gated RPC (owner-allowed)
           isPremium: existingChapter.isPremium,
           imageUrl: existingChapter.imageUrl,
           videoUrl: existingChapter.videoUrl,
+          pages: comic ? [] : undefined,
         }
-      : { title: '', body: '', isPremium: false },
+      : { title: '', body: '', isPremium: false, pages: comic ? [] : undefined },
   );
+  // For editing a comic chapter: existing pages as {path (to save), url (to preview)}.
+  const [initialPages, setInitialPages] = useState<{ path: string; url: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefilledRef = useRef(false);
 
-  // Chapter text isn't in the loaded story list (premium paragraphs are column-
-  // locked in the DB). When editing, pull the real body through the gated
-  // `get_chapter_content` RPC — the author owns the story, so it's allowed.
+  // Chapter content isn't in the loaded story list (paragraphs are column-locked).
+  // When editing, pull it via the gated `get_chapter_content` RPC (owner allowed):
+  // a novel gets its text body; a comic gets its page paths (+ signed previews).
   useEffect(() => {
     if (!isEditing || !chapterId || !supabase || prefilledRef.current) return;
     let cancelled = false;
@@ -45,18 +50,26 @@ export default function AddChapterScreen() {
       });
       if (cancelled) return;
       prefilledRef.current = true;
-      const paras = (data as string[] | null) ?? [];
-      setChapter((c) => ({ ...c, body: paras.join('\n\n') }));
+      const items = (data as string[] | null) ?? [];
+      if (comic) {
+        const signed = await fetchComicPages(storyId, chapterId);
+        if (cancelled) return;
+        setInitialPages(items.map((p, i) => ({ path: p, url: signed.pages[i] ?? p })));
+        setChapter((c) => ({ ...c, pages: items }));
+      } else {
+        setChapter((c) => ({ ...c, body: items.join('\n\n') }));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isEditing, chapterId, storyId]);
+  }, [isEditing, chapterId, storyId, comic]);
 
   const goToStory = () => router.replace({ pathname: '/story/[id]', params: { id: storyId } });
 
   const onDone = async () => {
-    if (!chapter.body.trim()) {
+    const empty = comic ? !(chapter.pages && chapter.pages.length) : !chapter.body.trim();
+    if (empty) {
       goToStory();
       return;
     }
@@ -88,6 +101,8 @@ export default function AddChapterScreen() {
   return (
     <ChapterCanvas
       value={chapter}
+      comic={comic}
+      initialPages={initialPages}
       onChange={(p) => setChapter((c) => ({ ...c, ...p }))}
       onDone={onDone}
       doneLabel={isEditing ? 'Save changes' : 'Save chapter'}

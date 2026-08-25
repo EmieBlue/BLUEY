@@ -69,7 +69,7 @@ export function StoriesProvider({ children }: { children: ReactNode }) {
     const { data, error: queryError } = await supabase
       .from('stories')
       .select(
-        '*, author:authors(*), chapters(id,order,title,reading_minutes,is_premium,image_url,video_url)',
+        '*, author:authors(*), chapters(id,order,title,reading_minutes,is_premium,image_url,video_url,page_count)',
       );
     if (queryError || !data || data.length === 0) {
       // Never show a blank app: fall back to the bundled sample stories.

@@ -49,6 +49,14 @@ export function StoryMeta({ story }: { story: Story }) {
       <ThemedText type="small" themeColor="textSecondary">
         · {formatReads(story.readsCount)} reads
       </ThemedText>
+      {story.kind === 'comic' && (
+        <View style={[styles.premiumTag, { backgroundColor: '#6C5CE7' }]}>
+          <Ionicons name="images" size={11} color="#FFFFFF" />
+          <ThemedText type="small" style={[styles.premiumTagText, { color: '#FFFFFF' }]}>
+            Comic
+          </ThemedText>
+        </View>
+      )}
       {hasPremiumChapters(story) && (
         <View style={styles.premiumTag}>
           <Ionicons name="lock-closed" size={11} color={theme.text} />

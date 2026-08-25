@@ -29,6 +29,7 @@ interface DbChapter {
   is_premium: boolean;
   image_url: string | null;
   video_url: string | null;
+  page_count?: number | null;
   // Not selected by the list query (column-locked); only the reader/editor fetch
   // real paragraphs via the gated RPC. Optional so the list mapping type-checks.
   paragraphs?: string[] | null;
@@ -50,6 +51,7 @@ export interface DbStory {
   reads_count: number | null;
   owner_id: string | null;
   cover_image_url: string | null;
+  kind: string | null;
   status: string | null;
   language: string | null;
   story_type: string | null;
@@ -74,6 +76,7 @@ function mapChapter(c: DbChapter): Chapter {
     imageUrl: c.image_url ?? undefined,
     videoUrl: c.video_url ?? undefined,
     paragraphs: c.paragraphs ?? [],
+    pageCount: c.page_count ?? 0,
   };
 }
 
@@ -100,6 +103,7 @@ export function mapStory(row: DbStory): Story {
     readsCount: row.reads_count ?? 0,
     ownerId: row.owner_id ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
+    kind: row.kind === 'comic' ? 'comic' : 'novel',
     status: row.status === 'draft' ? 'draft' : 'published',
     createdAt: row.created_at ?? undefined,
     language: row.language ?? undefined,
