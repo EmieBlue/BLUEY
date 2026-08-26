@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ComicPager } from '@/components/comic-pager';
 import { CommentsSection } from '@/components/comments-section';
 import { LoadingView } from '@/components/loading-view';
 import { NaturalImage } from '@/components/natural-image';
@@ -368,6 +369,12 @@ export default function ReaderScreen() {
         <LockedView
           onUnlock={() => router.push({ pathname: '/paywall', params: { storyId: story.id } })}
           chapterTitle={chapter.title}
+        />
+      ) : isComic ? (
+        <ComicPager
+          pages={comicPages ?? []}
+          loading={contentLoading}
+          onNext={next ? () => goToChapter(next) : undefined}
         />
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
