@@ -26,11 +26,14 @@ export default function ExploreScreen() {
   const { loading, searchStories } = useStoriesData();
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState<Genre | null>(null);
+  const [format, setFormat] = useState<'all' | 'novel' | 'comic'>('all');
 
   const results = useMemo(() => {
-    const bySearch = searchStories(query).filter((s) => s.status !== 'draft');
-    return genre ? bySearch.filter((s) => s.genres.includes(genre)) : bySearch;
-  }, [query, genre, searchStories]);
+    let list = searchStories(query).filter((s) => s.status !== 'draft');
+    if (genre) list = list.filter((s) => s.genres.includes(genre));
+    if (format !== 'all') list = list.filter((s) => (s.kind ?? 'novel') === format);
+    return list;
+  }, [query, genre, format, searchStories]);
 
   if (loading) return <LoadingView />;
 
@@ -60,6 +63,12 @@ export default function ExploreScreen() {
                 <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
               </Pressable>
             )}
+          </View>
+
+          <View style={styles.formatRow}>
+            <GenreChip label="All" active={format === 'all'} onPress={() => setFormat('all')} />
+            <GenreChip label="Novels" active={format === 'novel'} onPress={() => setFormat('novel')} />
+            <GenreChip label="Comics" active={format === 'comic'} onPress={() => setFormat('comic')} />
           </View>
 
           <ScrollView
@@ -159,6 +168,10 @@ const styles = StyleSheet.create({
   chipsRow: {
     gap: Spacing.two,
     paddingRight: Spacing.three,
+  },
+  formatRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   chip: {
     paddingHorizontal: Spacing.three,

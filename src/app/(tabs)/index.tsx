@@ -42,6 +42,7 @@ export default function HomeScreen() {
   const featured = stories.find((s) => s.coverImageUrl) ?? stories[0];
   const more = featured ? stories.filter((s) => s.id !== featured.id) : stories;
   const coverUrls = stories.filter((s) => s.coverImageUrl).map((s) => s.coverImageUrl as string);
+  const comics = stories.filter((s) => s.kind === 'comic');
 
   const continueReading = Object.keys(progress)
     .map((id) => getStoryById(id))
@@ -69,6 +70,13 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <SectionHeader title="Continue reading" />
               <Shelf stories={continueReading} />
+            </View>
+          )}
+
+          {comics.length > 0 && (
+            <View style={styles.section}>
+              <SectionHeader title="Comics" subtitle="Read in pictures" />
+              <Shelf stories={comics} />
             </View>
           )}
 
