@@ -8,11 +8,13 @@ import { SectionHeader } from '@/components/section-header';
 import { ShelfCard } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { WelcomeHero } from '@/components/welcome-hero';
 import { WriteFab } from '@/components/write-fab';
 import { APP_TAGLINE } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { LoadingView } from '@/components/loading-view';
 import { useAppState } from '@/context/app-state';
+import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import type { Story } from '@/data/types';
 
@@ -31,6 +33,7 @@ function Shelf({ stories }: { stories: Story[] }) {
 
 export default function HomeScreen() {
   const { progress } = useAppState();
+  const { user } = useAuth();
   const { stories, loading, getStoryById } = useStoriesData();
 
   if (loading) return <LoadingView />;
@@ -53,12 +56,16 @@ export default function HomeScreen() {
       <DepthBackground subtle covers={coverUrls} />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <BrandLogo full size={132} />
-            <ThemedText type="small" themeColor="textSecondary" style={styles.tagline}>
-              {APP_TAGLINE}
-            </ThemedText>
-          </View>
+          {user ? (
+            <View style={styles.header}>
+              <BrandLogo full size={132} />
+              <ThemedText type="small" themeColor="textSecondary" style={styles.tagline}>
+                {APP_TAGLINE}
+              </ThemedText>
+            </View>
+          ) : (
+            <WelcomeHero />
+          )}
 
           {featured && (
             <View style={styles.section}>

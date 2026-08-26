@@ -6,6 +6,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { ThemedText } from '@/components/themed-text';
 import { Wordmark } from '@/components/wordmark';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -23,6 +24,7 @@ export function TopNav() {
   const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
 
   return (
     <View
@@ -51,6 +53,18 @@ export function TopNav() {
               </Pressable>
             );
           })}
+          {!user && (
+            <Pressable
+              onPress={() => router.push('/auth')}
+              style={({ pressed }) => [
+                styles.signUp,
+                { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+              ]}>
+              <ThemedText type="smallBold" style={{ color: theme.accentOn }}>
+                Log in / Sign up
+              </ThemedText>
+            </Pressable>
+          )}
         </View>
       </View>
     </View>
@@ -81,5 +95,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: Spacing.three,
     borderRadius: 999,
+  },
+  signUp: {
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
+    marginLeft: Spacing.one,
   },
 });
