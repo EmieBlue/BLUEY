@@ -76,6 +76,12 @@ export function ComicPager({
     if (i !== index) setIndex(Math.max(0, Math.min(pages.length - 1, i)));
   };
 
+  // Pre-load the next couple of pages so a flip appears instantly.
+  useEffect(() => {
+    const upcoming = pages.slice(index + 1, index + 3).filter(Boolean);
+    if (upcoming.length) Image.prefetch(upcoming);
+  }, [index, pages]);
+
   if (loading) {
     return (
       <View style={styles.center} onLayout={onLayout}>
@@ -108,16 +114,7 @@ export function ComicPager({
           getItemLayout={(_, i) => ({ length: size.w, offset: size.w * i, index: i })}
           initialNumToRender={2}
           windowSize={3}
-          renderItem={({ item }) => (
-            <View style={{ width: size.w, height: size.h }}>
-              <Image
-                source={{ uri: item }}
-                style={StyleSheet.absoluteFill}
-                contentFit="contain"
-                transition={120}
-              />
-            </View>
-          )}
+          renderItem={({ item }) => <Page uri={item} w={size.w} h={size.h} />}
         />
       )}
 
@@ -150,8 +147,40 @@ export function ComicPager({
   );
 }
 
+/** One page cell — shows a spinner until the image has loaded. */
+function Page({ uri, w, h }: { uri: string; w: number; h: number }) {
+  const theme = useTheme();
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <View style={{ width: w, height: h }}>
+      {!loaded && (
+        <View style={styles.pageLoading}>
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      )}
+      <Image
+        source={{ uri }}
+        style={StyleSheet.absoluteFill}
+        contentFit="contain"
+        transition={150}
+        cachePolicy="memory-disk"
+        onLoadEnd={() => setLoaded(true)}
+      />
+    </View>
+  );
+}
+
 const HIT = 'rgba(0,0,0,0.35)';
 const styles = StyleSheet.create({
+  pageLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fill: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tapRow: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },

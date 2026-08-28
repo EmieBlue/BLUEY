@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -34,6 +35,26 @@ interface ChapterCanvasProps {
   comic?: boolean;
   /** Editing a comic chapter: its existing pages ({path to save, url to preview}). */
   initialPages?: { path: string; url: string }[];
+}
+
+/**
+ * Shrink a picked comic page before upload so readers don't download multi-MB
+ * files. Caps the long edge at 1400px (never upscales) and re-encodes as JPEG
+ * ~0.72 — typically 200–500 KB. Falls back to the original if manipulation isn't
+ * available on this platform.
+ */
+async function shrinkPage(uri: string, width?: number): Promise<string> {
+  try {
+    const actions =
+      width && width > 1400 ? [{ resize: { width: 1400 } }] : [];
+    const out = await ImageManipulator.manipulateAsync(uri, actions, {
+      compress: 0.72,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    return out.uri || uri;
+  } catch {
+    return uri;
+  }
 }
 
 /** Distraction-free chapter editor with optional image/video at the top. */
@@ -92,7 +113,8 @@ export function ChapterCanvas({
     setUploading(true);
     const added: { path: string; preview: string }[] = [];
     for (const asset of result.assets) {
-      const up = await uploadComicPage(asset.uri, user.id);
+      const smallUri = await shrinkPage(asset.uri, asset.width);
+      const up = await uploadComicPage(smallUri, user.id);
       if (up.error) {
         setMediaError(up.error);
         break;
