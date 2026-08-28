@@ -52,6 +52,7 @@ export interface DbStory {
   owner_id: string | null;
   cover_image_url: string | null;
   kind: string | null;
+  video_url: string | null;
   status: string | null;
   language: string | null;
   story_type: string | null;
@@ -103,7 +104,8 @@ export function mapStory(row: DbStory): Story {
     readsCount: row.reads_count ?? 0,
     ownerId: row.owner_id ?? undefined,
     coverImageUrl: row.cover_image_url ?? undefined,
-    kind: row.kind === 'comic' ? 'comic' : 'novel',
+    kind: row.kind === 'comic' ? 'comic' : row.kind === 'film' ? 'film' : 'novel',
+    videoUrl: row.video_url ?? undefined,
     status: row.status === 'draft' ? 'draft' : 'published',
     createdAt: row.created_at ?? undefined,
     language: row.language ?? undefined,

@@ -2,10 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { createElement, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -23,6 +22,7 @@ import { NaturalImage } from '@/components/natural-image';
 import { StoryCover } from '@/components/story-cover';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { YouTubePlayer } from '@/components/youtube-player';
 import { APP_NAME } from '@/config/app';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useAppState } from '@/context/app-state';
@@ -537,7 +537,7 @@ export default function ReaderScreen() {
             {!isComic && chapter.imageUrl ? (
               <NaturalImage uri={chapter.imageUrl} style={styles.chapterImage} />
             ) : null}
-            {!isComic && chapter.videoUrl ? <ChapterVideo url={chapter.videoUrl} /> : null}
+            {!isComic && chapter.videoUrl ? <YouTubePlayer url={chapter.videoUrl} /> : null}
 
             {contentLoading ? (
               <ActivityIndicator style={{ marginVertical: Spacing.six }} color={theme.accent} />
@@ -641,34 +641,6 @@ export default function ReaderScreen() {
         </Pressable>
       </Modal>
     </ThemedView>
-  );
-}
-
-function youTubeEmbed(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/);
-  return m ? `https://www.youtube.com/embed/${m[1]}` : null;
-}
-
-function ChapterVideo({ url }: { url: string }) {
-  const theme = useTheme();
-  const embed = youTubeEmbed(url);
-  if (Platform.OS === 'web' && embed) {
-    // On web, embed the player inline (RN Web renders the 'iframe' host element).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return createElement('iframe' as any, {
-      src: embed,
-      title: 'Chapter video',
-      allowFullScreen: true,
-      style: { width: '100%', height: 240, border: 0, borderRadius: 12, marginBottom: 16 },
-    });
-  }
-  return (
-    <Pressable
-      onPress={() => Linking.openURL(url)}
-      style={[styles.videoBtn, { backgroundColor: theme.backgroundElement }]}>
-      <Ionicons name="logo-youtube" size={20} color="#FF0000" />
-      <ThemedText type="smallBold">Watch video</ThemedText>
-    </Pressable>
   );
 }
 

@@ -57,6 +57,14 @@ export function StoryMeta({ story }: { story: Story }) {
           </ThemedText>
         </View>
       )}
+      {story.kind === 'film' && (
+        <View style={[styles.premiumTag, { backgroundColor: '#C4302B' }]}>
+          <Ionicons name="play" size={11} color="#FFFFFF" />
+          <ThemedText type="small" style={[styles.premiumTagText, { color: '#FFFFFF' }]}>
+            Film
+          </ThemedText>
+        </View>
+      )}
       {hasPremiumChapters(story) && (
         <View style={styles.premiumTag}>
           <Ionicons name="lock-closed" size={11} color={theme.text} />

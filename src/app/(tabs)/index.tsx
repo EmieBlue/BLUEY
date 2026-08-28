@@ -46,6 +46,7 @@ export default function HomeScreen() {
   const more = featured ? stories.filter((s) => s.id !== featured.id) : stories;
   const coverUrls = stories.filter((s) => s.coverImageUrl).map((s) => s.coverImageUrl as string);
   const comics = stories.filter((s) => s.kind === 'comic');
+  const films = stories.filter((s) => s.kind === 'film');
 
   const continueReading = Object.keys(progress)
     .map((id) => getStoryById(id))
@@ -84,6 +85,13 @@ export default function HomeScreen() {
             <View style={styles.section}>
               <SectionHeader title="Comics" subtitle="Read in pictures" />
               <Shelf stories={comics} />
+            </View>
+          )}
+
+          {films.length > 0 && (
+            <View style={styles.section}>
+              <SectionHeader title="Short Films" subtitle="Watch free" />
+              <Shelf stories={films} />
             </View>
           )}
 

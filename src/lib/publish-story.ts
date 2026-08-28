@@ -1,5 +1,6 @@
 import type { Genre, StoryFormat } from '@/data/types';
 import { supabase } from '@/lib/supabase';
+import { youTubeThumbnail } from '@/lib/youtube';
 
 /**
  * Publishes a story written in the app: upserts the author row, inserts the
@@ -26,7 +27,9 @@ export interface StoryDraft {
   coverColor: string;
   coverImageUrl?: string;
   format: StoryFormat;
-  kind?: 'novel' | 'comic';
+  kind?: 'novel' | 'comic' | 'film';
+  /** Film only: the YouTube link. */
+  videoUrl?: string;
   status?: 'draft' | 'published';
   language?: string;
   storyType?: string;
@@ -110,8 +113,10 @@ export async function publishStory(
     description: draft.description.trim(),
     cover_color: draft.coverColor,
     cover_emoji: draft.coverEmoji || '📖',
-    cover_image_url: draft.coverImageUrl ?? null,
+    cover_image_url:
+      draft.coverImageUrl ?? (draft.kind === 'film' ? youTubeThumbnail(draft.videoUrl ?? '') : null),
     kind: draft.kind ?? 'novel',
+    video_url: draft.videoUrl ?? null,
     status: draft.status ?? 'published',
     language: draft.language ?? null,
     story_type: draft.storyType ?? null,
@@ -207,7 +212,9 @@ export async function updateStory(
       genres: draft.genres,
       cover_color: draft.coverColor,
       cover_emoji: draft.coverEmoji || '',
-      cover_image_url: draft.coverImageUrl ?? null,
+      cover_image_url:
+        draft.coverImageUrl ?? (draft.kind === 'film' ? youTubeThumbnail(draft.videoUrl ?? '') : null),
+      video_url: draft.videoUrl ?? null,
       language: draft.language ?? null,
       story_type: draft.storyType ?? null,
       tags: draft.tags ?? [],

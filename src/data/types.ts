@@ -85,8 +85,10 @@ export interface Story {
   ownerId?: string;
   /** Uploaded cover image URL; when set it's shown instead of the emoji+color cover. */
   coverImageUrl?: string;
-  /** Book kind: a text 'novel' (default) or an image-based 'comic' (webtoon). */
-  kind?: 'novel' | 'comic';
+  /** Kind: a text 'novel' (default), an image 'comic' (webtoon), or a 'film' (YouTube video). */
+  kind?: 'novel' | 'comic' | 'film';
+  /** Film only: the YouTube link that plays in-app. */
+  videoUrl?: string;
   /** 'published' (public) or 'draft' (visible only to the owner). */
   status?: 'draft' | 'published';
   /** When the story was created (ISO), shown as the "Published" date. */

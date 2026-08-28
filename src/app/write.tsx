@@ -24,6 +24,7 @@ import { useStoriesData } from '@/context/stories';
 import { ALL_GENRES, type Genre, type Story } from '@/data/types';
 import { publishStory, updateStory } from '@/lib/publish-story';
 import { uploadCover } from '@/lib/upload-cover';
+import { youTubeId } from '@/lib/youtube';
 import { useTheme } from '@/hooks/use-theme';
 
 const LANGUAGES = ['English', 'Spanish', 'French', 'Portuguese', 'German', 'Other'];
@@ -61,7 +62,8 @@ export default function WriteScreen() {
   const [coverEmoji] = useState(existing?.coverEmoji ?? '');
   const [coverColor] = useState(existing?.coverColor ?? COVER_COLORS[0]);
   const [coverImageUrl, setCoverImageUrl] = useState<string | undefined>(existing?.coverImageUrl);
-  const [kind, setKind] = useState<'novel' | 'comic'>(existing?.kind ?? 'novel');
+  const [kind, setKind] = useState<'novel' | 'comic' | 'film'>(existing?.kind ?? 'novel');
+  const [videoUrl, setVideoUrl] = useState(existing?.videoUrl ?? '');
 
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -114,6 +116,10 @@ export default function WriteScreen() {
       setError('Please add a description.');
       return;
     }
+    if (kind === 'film' && !youTubeId(videoUrl)) {
+      setError('Please paste a valid YouTube link for your film.');
+      return;
+    }
     if (!user) {
       setError('Please sign in first.');
       return;
@@ -128,6 +134,7 @@ export default function WriteScreen() {
       coverImageUrl,
       format: 'serial' as const,
       kind,
+      videoUrl: kind === 'film' ? videoUrl.trim() : undefined,
       status: 'draft' as const,
       language,
       storyType,
@@ -152,7 +159,8 @@ export default function WriteScreen() {
       router.replace({ pathname: '/story/[id]', params: { id: existing.id } });
       return;
     }
-    // Create mode: make a draft then go write Part 1.
+    // Create mode: make a draft. Films have no chapters → go straight to the film
+    // page; novels/comics go to add their first chapter/pages.
     const result = await publishStory(draft, { id: user.id, displayName });
     setBusy(false);
     if (result.error) {
@@ -160,7 +168,11 @@ export default function WriteScreen() {
       return;
     }
     await refresh();
-    router.replace({ pathname: '/add-chapter', params: { storyId: result.storyId as string } });
+    if (kind === 'film') {
+      router.replace({ pathname: '/story/[id]', params: { id: result.storyId as string } });
+    } else {
+      router.replace({ pathname: '/add-chapter', params: { storyId: result.storyId as string } });
+    }
   };
 
   if (!isAuthor) {
@@ -237,7 +249,22 @@ export default function WriteScreen() {
           <View style={styles.chips}>
             <Chip label="📖 Novel (text)" active={kind === 'novel'} onPress={() => setKind('novel')} />
             <Chip label="🖼️ Comic (pages)" active={kind === 'comic'} onPress={() => setKind('comic')} />
+            <Chip label="🎬 Film (video)" active={kind === 'film'} onPress={() => setKind('film')} />
           </View>
+        </Field>
+      )}
+      {kind === 'film' && (
+        <Field label="YouTube link *">
+          <Input
+            value={videoUrl}
+            onChangeText={setVideoUrl}
+            placeholder="Paste your YouTube video or Shorts link"
+            autoCapitalize="none"
+            keyboardType="url"
+          />
+          <ThemedText type="small" themeColor="textSecondary">
+            Free to watch in Elyra — you earn on YouTube. The thumbnail becomes the cover automatically.
+          </ThemedText>
         </Field>
       )}
       <Field label="Language">

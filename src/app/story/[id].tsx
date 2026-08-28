@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { LoadingView } from '@/components/loading-view';
 import { ReviewsSection } from '@/components/reviews-section';
 import { StoryCover } from '@/components/story-cover';
+import { YouTubePlayer } from '@/components/youtube-player';
 import { StoryMeta } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -60,6 +61,7 @@ export default function StoryDetailScreen() {
   const owns = hasPurchased(story.id) || isOwner;
   const hasAccess = owns && !previewAsReader;
   const showPremiumBanner = hasPremiumChapters(story) && !hasAccess;
+  const isFilm = story.kind === 'film';
 
   const publishNow = async () => {
     if (story.chapters.length === 0) {
@@ -157,19 +159,28 @@ export default function StoryDetailScreen() {
             </View>
           </View>
 
+          {/* Film: the video plays right here */}
+          {isFilm && story.videoUrl ? (
+            <View style={styles.filmPlayer}>
+              <YouTubePlayer url={story.videoUrl} />
+            </View>
+          ) : null}
+
           {/* Actions */}
           <View style={styles.actions}>
-            <Pressable
-              onPress={() => openChapter(primaryChapter)}
-              style={({ pressed }) => [
-                styles.primaryBtn,
-                { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-              ]}>
-              <Ionicons name="book" size={18} color={theme.accentOn} />
-              <ThemedText style={[styles.primaryBtnText, { color: theme.accentOn }]}>
-                {primaryLabel}
-              </ThemedText>
-            </Pressable>
+            {!isFilm && (
+              <Pressable
+                onPress={() => openChapter(primaryChapter)}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+                ]}>
+                <Ionicons name="book" size={18} color={theme.accentOn} />
+                <ThemedText style={[styles.primaryBtnText, { color: theme.accentOn }]}>
+                  {primaryLabel}
+                </ThemedText>
+              </Pressable>
+            )}
             <Pressable
               onPress={() => toggleFollow(story.id)}
               style={({ pressed }) => [
@@ -214,14 +225,16 @@ export default function StoryDetailScreen() {
                     Edit story
                   </ThemedText>
                 </Pressable>
-                <Pressable
-                  onPress={() => router.push({ pathname: '/add-chapter', params: { storyId: story.id } })}
-                  style={[styles.ownerBtn, { borderColor: theme.accent, borderWidth: 1.5 }]}>
-                  <Ionicons name="add" size={18} color={theme.accent} />
-                  <ThemedText type="smallBold" themeColor="accent">
-                    Add chapter
-                  </ThemedText>
-                </Pressable>
+                {!isFilm && (
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/add-chapter', params: { storyId: story.id } })}
+                    style={[styles.ownerBtn, { borderColor: theme.accent, borderWidth: 1.5 }]}>
+                    <Ionicons name="add" size={18} color={theme.accent} />
+                    <ThemedText type="smallBold" themeColor="accent">
+                      Add chapter
+                    </ThemedText>
+                  </Pressable>
+                )}
               </View>
               {story.status === 'published' && (
                 <Pressable
@@ -334,8 +347,8 @@ export default function StoryDetailScreen() {
             </Pressable>
           )}
 
-          {/* Chapters (hidden for single-chapter standalone stories) */}
-          {story.format === 'serial' && (
+          {/* Chapters (films have none) */}
+          {!isFilm && story.format === 'serial' && (
             <View style={styles.chapterList}>
               <ThemedText style={styles.chaptersHeading}>
                 {story.chapters.length} chapters{story.isComplete ? ' · Complete' : ' · Ongoing'}
@@ -424,6 +437,7 @@ function ChapterRow({
 }
 
 const styles = StyleSheet.create({
+  filmPlayer: { marginBottom: Spacing.two },
   draftPill: {
     alignSelf: 'flex-start',
     paddingHorizontal: Spacing.two,

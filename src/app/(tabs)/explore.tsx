@@ -26,7 +26,7 @@ export default function ExploreScreen() {
   const { loading, searchStories } = useStoriesData();
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState<Genre | null>(null);
-  const [format, setFormat] = useState<'all' | 'novel' | 'comic'>('all');
+  const [format, setFormat] = useState<'all' | 'novel' | 'comic' | 'film'>('all');
 
   const results = useMemo(() => {
     let list = searchStories(query).filter((s) => s.status !== 'draft');
@@ -69,6 +69,7 @@ export default function ExploreScreen() {
             <GenreChip label="All" active={format === 'all'} onPress={() => setFormat('all')} />
             <GenreChip label="Novels" active={format === 'novel'} onPress={() => setFormat('novel')} />
             <GenreChip label="Comics" active={format === 'comic'} onPress={() => setFormat('comic')} />
+            <GenreChip label="Films" active={format === 'film'} onPress={() => setFormat('film')} />
           </View>
 
           <ScrollView
