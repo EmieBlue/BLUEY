@@ -1,29 +1,47 @@
+import { Platform } from 'react-native';
+
+import { SITE_URL } from '@/config/app';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Uploads one comic page image (by uri) to the PRIVATE `comics` Storage bucket
- * and returns its object PATH (not a public URL — the bucket is private). The
- * path is stored in the chapter's premium-gated `paragraphs`, and readers are
- * served the image only via short-lived signed URLs (functions/api/comic-pages.js).
- * The path starts with the user's id so the storage RLS policy allows the upload.
+ * Uploads one comic page image to the PRIVATE `comics` bucket and returns its
+ * object PATH. Goes through our same-origin function (`/api/comic-upload`) rather
+ * than straight to Supabase Storage, so an ad-blocker can't drop the cross-origin
+ * write to supabase.co (the same reason comments/reviews use `/api/*`). Accepts a
+ * Blob (already-resized) or a uri; the session token is read here.
  */
-export async function uploadComicPage(
-  uri: string,
-  userId: string,
-): Promise<{ path?: string; error?: string }> {
+function endpoint(): string {
+  const base =
+    Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : SITE_URL;
+  return `${base}/api/comic-upload`;
+}
+
+async function toBlob(source: string | Blob): Promise<Blob> {
+  if (typeof source !== 'string') return source;
+  const res = await fetch(source);
+  return res.blob();
+}
+
+export async function uploadComicPage(source: string | Blob): Promise<{ path?: string; error?: string }> {
   if (!supabase) return { error: 'Not connected to the database.' };
   try {
-    const res = await fetch(uri);
-    const blob = await res.blob();
-    const ext = blob.type?.split('/')[1] || 'jpg';
-    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
-    const { error } = await supabase.storage.from('comics').upload(path, blob, {
-      contentType: blob.type || 'image/jpeg',
-      upsert: true,
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { error: 'Please sign in to upload.' };
+
+    const blob = await toBlob(source);
+    const res = await fetch(endpoint(), {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'image/jpeg', 'x-access-token': token },
+      body: blob,
     });
-    if (error) return { error: error.message };
-    return { path };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Upload failed' };
+    const out = await res.json().catch(() => ({}) as { path?: string; error?: string });
+    if (!res.ok || !out.path) return { error: out.error || 'Upload failed.' };
+    return { path: out.path };
+  } catch {
+    return {
+      error:
+        'Couldn’t reach the server — an ad or privacy blocker may be in the way. Allow this site and try again.',
+    };
   }
 }

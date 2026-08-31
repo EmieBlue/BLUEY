@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -19,6 +18,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { ChapterDraft } from '@/lib/publish-story';
+import { shrinkImageWeb } from '@/lib/shrink-image';
 import { uploadComicPage } from '@/lib/upload-comic-page';
 import { uploadCover } from '@/lib/upload-cover';
 import { useTheme } from '@/hooks/use-theme';
@@ -35,26 +35,8 @@ interface ChapterCanvasProps {
   comic?: boolean;
   /** Editing a comic chapter: its existing pages ({path to save, url to preview}). */
   initialPages?: { path: string; url: string }[];
-}
-
-/**
- * Shrink a picked comic page before upload so readers don't download multi-MB
- * files. Caps the long edge at 1400px (never upscales) and re-encodes as JPEG
- * ~0.72 — typically 200–500 KB. Falls back to the original if manipulation isn't
- * available on this platform.
- */
-async function shrinkPage(uri: string, width?: number): Promise<string> {
-  try {
-    const actions =
-      width && width > 1400 ? [{ resize: { width: 1400 } }] : [];
-    const out = await ImageManipulator.manipulateAsync(uri, actions, {
-      compress: 0.72,
-      format: ImageManipulator.SaveFormat.JPEG,
-    });
-    return out.uri || uri;
-  } catch {
-    return uri;
-  }
+  /** Comic edit still loading its existing pages — disable Save so we can't wipe them. */
+  pagesLoading?: boolean;
 }
 
 /** Distraction-free chapter editor with optional image/video at the top. */
@@ -68,6 +50,7 @@ export function ChapterCanvas({
   error,
   comic = false,
   initialPages,
+  pagesLoading = false,
 }: ChapterCanvasProps) {
   const theme = useTheme();
   const { user } = useAuth();
@@ -112,16 +95,20 @@ export function ChapterCanvas({
     if (result.canceled || !result.assets?.length || !user) return;
     setUploading(true);
     const added: { path: string; preview: string }[] = [];
-    for (const asset of result.assets) {
-      const smallUri = await shrinkPage(asset.uri, asset.width);
-      const up = await uploadComicPage(smallUri, user.id);
-      if (up.error) {
-        setMediaError(up.error);
-        break;
+    try {
+      for (const asset of result.assets) {
+        // Shrink in the browser (reliable); on native / on failure, send the original.
+        const shrunk = await shrinkImageWeb(asset.uri);
+        const up = await uploadComicPage(shrunk ?? asset.uri);
+        if (up.error) {
+          setMediaError(up.error);
+          break;
+        }
+        if (up.path) added.push({ path: up.path, preview: asset.uri });
       }
-      if (up.path) added.push({ path: up.path, preview: asset.uri });
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
     if (added.length) syncPages([...pages, ...added]);
   };
 
@@ -138,18 +125,18 @@ export function ChapterCanvas({
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
         <View style={[styles.bar, { borderBottomColor: theme.backgroundElement }]}>
-          <Pressable onPress={onDone} hitSlop={12} disabled={busy}>
+          <Pressable onPress={onDone} hitSlop={12} disabled={busy || pagesLoading}>
             <Ionicons name="chevron-back" size={26} color={theme.text} />
           </Pressable>
           <ThemedText type="smallBold" numberOfLines={1} style={styles.barTitle}>
             {headerLabel}
           </ThemedText>
-          <Pressable onPress={onDone} disabled={busy} hitSlop={8}>
+          <Pressable onPress={onDone} disabled={busy || pagesLoading} hitSlop={8}>
             {busy ? (
               <ActivityIndicator color={theme.accent} />
             ) : (
-              <ThemedText type="smallBold" themeColor="accent">
-                {doneLabel}
+              <ThemedText type="smallBold" themeColor={pagesLoading ? 'textSecondary' : 'accent'}>
+                {pagesLoading ? 'Loading…' : doneLabel}
               </ThemedText>
             )}
           </Pressable>

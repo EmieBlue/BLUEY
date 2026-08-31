@@ -18,6 +18,7 @@ export default function AddChapterScreen() {
   const comic = story?.kind === 'comic';
   const existingChapter = chapterId ? story?.chapters.find((c) => c.id === chapterId) : undefined;
   const isEditing = !!existingChapter;
+  const hadPages = (existingChapter?.pageCount ?? 0) > 0;
 
   const [chapter, setChapter] = useState<ChapterDraft>(
     existingChapter
@@ -36,6 +37,9 @@ export default function AddChapterScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefilledRef = useRef(false);
+  // A comic being edited must load its existing pages before Save is allowed —
+  // otherwise a title-only save would overwrite the pages with an empty list.
+  const [pagesLoaded, setPagesLoaded] = useState<boolean>(() => !(comic && isEditing));
 
   // Chapter content isn't in the loaded story list (paragraphs are column-locked).
   // When editing, pull it via the gated `get_chapter_content` RPC (owner allowed):
@@ -54,25 +58,48 @@ export default function AddChapterScreen() {
       if (comic) {
         const signed = await fetchComicPages(storyId, chapterId);
         if (cancelled) return;
-        setInitialPages(items.map((p, i) => ({ path: p, url: signed.pages[i] ?? p })));
-        setChapter((c) => ({ ...c, pages: items }));
+        if (items.length > 0) {
+          setInitialPages(items.map((p, i) => ({ path: p, url: signed.pages[i] ?? p })));
+          setChapter((c) => ({ ...c, pages: items }));
+          setPagesLoaded(true);
+        } else if (hadPages) {
+          // This chapter should have pages but they didn't load — keep Save
+          // disabled so a stray save can't wipe them.
+          setError('Couldn’t load this chapter’s pages. Please refresh and try again.');
+        } else {
+          setPagesLoaded(true); // genuinely a 0-page chapter
+        }
       } else {
         setChapter((c) => ({ ...c, body: items.join('\n\n') }));
+        setPagesLoaded(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isEditing, chapterId, storyId, comic]);
+  }, [isEditing, chapterId, storyId, comic, hadPages]);
 
   const goToStory = () => router.replace({ pathname: '/story/[id]', params: { id: storyId } });
 
   const onDone = async () => {
-    const empty = comic ? !(chapter.pages && chapter.pages.length) : !chapter.body.trim();
-    if (empty) {
+    const hasPages = !!(chapter.pages && chapter.pages.length);
+
+    // Never overwrite a comic chapter's real pages before they've loaded.
+    if (comic && isEditing && hadPages && !hasPages) {
+      setError('Still loading this chapter’s pages — please wait a moment.');
+      return;
+    }
+
+    const hasContent = comic ? hasPages : !!chapter.body.trim();
+    if (!isEditing && !hasContent) {
+      if (comic) {
+        setError('Add at least one page before saving.');
+        return;
+      }
       goToStory();
       return;
     }
+
     setBusy(true);
     const res =
       isEditing && chapterId
@@ -103,6 +130,7 @@ export default function AddChapterScreen() {
       value={chapter}
       comic={comic}
       initialPages={initialPages}
+      pagesLoading={comic && isEditing && !pagesLoaded}
       onChange={(p) => setChapter((c) => ({ ...c, ...p }))}
       onDone={onDone}
       doneLabel={isEditing ? 'Save changes' : 'Save chapter'}
