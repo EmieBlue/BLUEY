@@ -391,14 +391,10 @@ export default function ReaderScreen() {
                 {[
                   'Published',
                   fmtDate(story.createdAt),
-                  isComic
-                    ? chapter.pageCount
-                      ? `${chapter.pageCount} pages`
-                      : null
-                    : content && content.length
-                      ? `${countWords(content).toLocaleString()} words`
-                      : null,
-                  isComic ? null : `${chapter.readingMinutes} min read`,
+                  content && content.length
+                    ? `${countWords(content).toLocaleString()} words`
+                    : null,
+                  `${chapter.readingMinutes} min read`,
                 ]
                   .filter(Boolean)
                   .join('  ·  ')}
@@ -534,23 +530,13 @@ export default function ReaderScreen() {
             </View>
             )}
 
-            {!isComic && chapter.imageUrl ? (
+            {chapter.imageUrl ? (
               <NaturalImage uri={chapter.imageUrl} style={styles.chapterImage} />
             ) : null}
-            {!isComic && chapter.videoUrl ? <YouTubePlayer url={chapter.videoUrl} /> : null}
+            {chapter.videoUrl ? <YouTubePlayer url={chapter.videoUrl} /> : null}
 
             {contentLoading ? (
               <ActivityIndicator style={{ marginVertical: Spacing.six }} color={theme.accent} />
-            ) : isComic ? (
-              comicPages && comicPages.length > 0 ? (
-                comicPages.map((uri, i) => (
-                  <NaturalImage key={i} uri={uri} radius={0} style={styles.comicPage} />
-                ))
-              ) : (
-                <ThemedText themeColor="textSecondary" style={styles.paragraph}>
-                  This chapter isn’t available to read yet.
-                </ThemedText>
-              )
             ) : content && content.length === 0 ? (
               <ThemedText themeColor="textSecondary" style={styles.paragraph}>
                 This chapter isn’t available to read yet.
@@ -846,7 +832,6 @@ const styles = StyleSheet.create({
     lineHeight: 33,
     marginBottom: 20,
   },
-  comicPage: { marginBottom: 0 },
   navRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

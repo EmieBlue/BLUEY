@@ -53,7 +53,7 @@ export async function onRequestPost({ request, env }) {
       Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ expiresIn: 3600, paths }),
+    body: JSON.stringify({ expiresIn: 21600, paths }),
   });
   if (!signRes.ok) return json(502, { error: 'Could not prepare pages.' });
   const signed = await signRes.json(); // [{ signedURL, path, error }]

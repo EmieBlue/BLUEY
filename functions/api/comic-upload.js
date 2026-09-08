@@ -48,6 +48,7 @@ export async function onRequestPost({ request, env }) {
         Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
         'Content-Type': contentType,
         'x-upsert': 'true',
+        'cache-control': 'public, max-age=31536000, immutable',
       },
       body: bytes,
     },

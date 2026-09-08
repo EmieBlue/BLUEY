@@ -46,7 +46,7 @@ export async function getChapterAudioUrl(params: {
       if (res.ok && data.url) return { url: data.url };
       lastError = data.error || lastError;
       // Definitive errors won't fix themselves on retry — stop early.
-      if (res.status === 400 || res.status === 401) return { error: lastError };
+      if (res.status === 400 || res.status === 401 || res.status === 403) return { error: lastError };
     } catch {
       lastError = 'Couldn’t reach the narration service. Check your connection and try again.';
     }

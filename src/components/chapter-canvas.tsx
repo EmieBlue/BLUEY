@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,7 +19,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import type { ChapterDraft } from '@/lib/publish-story';
-import { shrinkImageWeb } from '@/lib/shrink-image';
+import { shrinkImageNative, shrinkImageWeb } from '@/lib/shrink-image';
 import { uploadComicPage } from '@/lib/upload-comic-page';
 import { uploadCover } from '@/lib/upload-cover';
 import { useTheme } from '@/hooks/use-theme';
@@ -97,8 +98,12 @@ export function ChapterCanvas({
     const added: { path: string; preview: string }[] = [];
     try {
       for (const asset of result.assets) {
-        // Shrink in the browser (reliable); on native / on failure, send the original.
-        const shrunk = await shrinkImageWeb(asset.uri);
+        // Shrink before upload — canvas on web, expo-image-manipulator on
+        // native. Falls back to the original asset on failure.
+        const shrunk =
+          Platform.OS === 'web'
+            ? await shrinkImageWeb(asset.uri)
+            : await shrinkImageNative(asset.uri, asset.width, asset.height);
         const up = await uploadComicPage(shrunk ?? asset.uri);
         if (up.error) {
           setMediaError(up.error);

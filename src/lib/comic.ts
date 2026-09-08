@@ -21,10 +21,22 @@ async function accessToken(): Promise<string | undefined> {
   return data.session?.access_token ?? undefined;
 }
 
+// In-memory cache of a chapter's signed page URLs, so leaving and returning to
+// a chapter within the same app session doesn't re-run the fetch chain. Kept
+// comfortably under the server's signed-URL expiry (21600s / 6h) so a cache
+// hit is always still a live URL.
+const CACHE_TTL_MS = 5 * 60 * 60 * 1000; // 5h
+const cache = new Map<string, { pages: string[]; expiresAt: number }>();
+
 export async function fetchComicPages(
   storyId: string,
   chapterId: string,
 ): Promise<{ pages: string[]; locked: boolean; failed: boolean }> {
+  const key = `${storyId}:${chapterId}`;
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { pages: cached.pages, locked: false, failed: false };
+  }
   try {
     const token = await accessToken();
     const res = await fetch(endpoint(), {
@@ -35,6 +47,7 @@ export async function fetchComicPages(
     if (res.status === 403) return { pages: [], locked: true, failed: false };
     const data = await res.json().catch(() => ({}) as { pages?: string[] });
     if (!res.ok || !Array.isArray(data.pages)) return { pages: [], locked: false, failed: true };
+    cache.set(key, { pages: data.pages, expiresAt: Date.now() + CACHE_TTL_MS });
     return { pages: data.pages, locked: false, failed: false };
   } catch {
     return { pages: [], locked: false, failed: true };

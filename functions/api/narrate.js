@@ -51,6 +51,14 @@ function chunkText(text, max = 3800) {
       push();
       const sentences = p.match(/[^.!?]+[.!?]*\s*/g) || [p];
       for (const s of sentences) {
+        // A single "sentence" can itself exceed max (em dashes, ellipses, or
+        // just long unbroken prose with no . ! ? boundaries) — hard-slice it
+        // by character count so no chunk ever exceeds OpenAI's input limit.
+        if (s.length > max) {
+          push();
+          for (let i = 0; i < s.length; i += max) chunks.push(s.slice(i, i + max).trim());
+          continue;
+        }
         if ((cur + s).length > max) push();
         cur += s;
       }
@@ -64,6 +72,14 @@ function chunkText(text, max = 3800) {
   }
   push();
   return chunks.length ? chunks : [text.slice(0, max)];
+}
+
+// Short, stable hash of the chapter text — used to key the cached audio file
+// so an edited chapter (or one that got a bad cached response) regenerates
+// instead of staying stuck on stale audio forever.
+async function hashText(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
 }
 
 async function fetchWithTimeout(url, options, ms) {
@@ -121,9 +137,16 @@ async function handle({ request, env }) {
   const { chapterId, text, genre } = body;
   if (!chapterId || !text || !text.trim()) return json(400, { error: 'Missing chapterId or text.' });
   if (!env.OPENAI_API_KEY) return json(502, { error: 'Narration is not configured yet.' });
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return json(502, { error: 'Narration is not configured yet.' });
+  }
 
   const { voice, instructions } = pickVoice(genre);
-  const objectPath = `${chapterId}-${voice}.mp3`;
+  // Fold a hash of the text into the cache key so editing a chapter (or a
+  // chapter that was cached with bad/refusal audio) naturally invalidates the
+  // old file instead of being stuck forever.
+  const hash = await hashText(text);
+  const objectPath = `${chapterId}-${voice}-${hash}.mp3`;
   const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/tts/${objectPath}`;
   // Same-origin audio URL the browser will actually play.
   const origin = new URL(request.url).origin;
@@ -161,13 +184,30 @@ async function handle({ request, env }) {
           },
           25000,
         );
-        if (!r.ok) throw new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 200)}`);
-        return new Uint8Array(await r.arrayBuffer());
+        if (!r.ok) {
+          const err = new Error(`OpenAI ${r.status}: ${(await r.text()).slice(0, 200)}`);
+          err.status = r.status;
+          throw err;
+        }
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        // A near-empty response (truncated stream, or a refusal so short it's
+        // clearly not real narration) shouldn't ever be cached as if it were
+        // good audio.
+        if (bytes.length < 2000) {
+          throw new Error('Empty or truncated audio from OpenAI.');
+        }
+        return bytes;
       }),
     );
   } catch (e) {
-    const msg = e && e.name === 'AbortError' ? 'Narration timed out — please try again.' : e.message;
-    return json(502, { error: `Could not generate narration: ${msg}` });
+    if (e && e.name === 'AbortError') {
+      return json(502, { error: 'Narration timed out — please try again.' });
+    }
+    // 429/5xx from OpenAI is transient (worth retrying); anything else
+    // (400/401/403/422…) is a permanent failure the client shouldn't retry.
+    const upstream = e && e.status;
+    const permanent = upstream && upstream !== 429 && upstream < 500;
+    return json(permanent ? 400 : 503, { error: `Could not generate narration: ${e.message}` });
   }
 
   // Concatenate the mp3 parts into one file.
