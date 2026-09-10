@@ -1,8 +1,9 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DepthBackground } from '@/components/depth-background';
 import { BrandLogo } from '@/components/brand-logo';
+import { CinematicLanding } from '@/components/landing/cinematic-landing';
 import { FeaturedHero } from '@/components/featured-hero';
 import { SectionHeader } from '@/components/section-header';
 import { ShelfCard } from '@/components/story-card';
@@ -35,6 +36,10 @@ export default function HomeScreen() {
   const { progress } = useAppState();
   const { user } = useAuth();
   const { stories, loading, getStoryById } = useStoriesData();
+
+  // Signed-out visitors on the website get the cinematic "enter a universe of
+  // stories" landing instead of the app home. Native keeps the browsable home.
+  if (!user && Platform.OS === 'web') return <CinematicLanding />;
 
   if (loading) return <LoadingView />;
 
