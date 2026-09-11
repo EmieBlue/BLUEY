@@ -43,11 +43,35 @@ export function StoryCharacter() {
   );
 }
 
+/** A soft elliptical falloff so a non-cutout photo fades to nothing at its
+ *  edges instead of showing as a hard rectangle — reads as an atmospheric
+ *  vision of her rather than a floating poster. Harmless on a real cutout too. */
+let cachedVignette: THREE.CanvasTexture | null = null;
+function vignetteAlpha(): THREE.CanvasTexture {
+  if (cachedVignette) return cachedVignette;
+  const w = 256;
+  const h = 384;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(w / 2, h * 0.42, 0, w / 2, h * 0.42, h * 0.6);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.92)');
+  g.addColorStop(0.85, 'rgba(255,255,255,0.4)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  cachedVignette = new THREE.CanvasTexture(c);
+  return cachedVignette;
+}
+
 /** Textured cutout, softly rim-lit — turns with the group like the procedural figure. */
 function BillboardFigure({ texture }: { texture: THREE.Texture }) {
   const mat = useRef<THREE.MeshBasicMaterial>(null);
   const glow = useRef<THREE.Mesh>(null);
   const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+  const vignette = useMemo(vignetteAlpha, []);
   const img = texture.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.height ?? 1) / (img?.width ?? 1) || 1.5;
   const width = 1.5;
@@ -77,7 +101,15 @@ function BillboardFigure({ texture }: { texture: THREE.Texture }) {
       </mesh>
       <mesh>
         <planeGeometry args={[width, width * aspect]} />
-        <meshBasicMaterial ref={mat} map={texture} transparent opacity={0} depthWrite={false} toneMapped={false} />
+        <meshBasicMaterial
+          ref={mat}
+          map={texture}
+          alphaMap={vignette}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          toneMapped={false}
+        />
       </mesh>
     </group>
   );

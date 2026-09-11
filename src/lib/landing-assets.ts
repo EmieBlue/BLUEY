@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useSyncExternalStore } from 'react';
 import * as THREE from 'three';
 
 /**
@@ -18,48 +19,60 @@ export const ASSET_URL = {
   world: (key: string) => `/landing/world-${key}.jpg`,
 };
 
-type CacheEntry = THREE.Texture | null | 'pending';
-const cache = new Map<string, CacheEntry>();
+const cache = new Map<string, THREE.Texture | null>();
+const inflight = new Set<string>();
 const listeners = new Map<string, Set<() => void>>();
 
-function load(url: string) {
-  cache.set(url, 'pending');
+function ensureLoad(url: string) {
+  if (cache.has(url) || inflight.has(url)) return;
+  inflight.add(url);
   const notify = () => listeners.get(url)?.forEach((fn) => fn());
   new THREE.TextureLoader().load(
     url,
     (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
+      inflight.delete(url);
       cache.set(url, tex);
       notify();
     },
     undefined,
     () => {
       // Missing/failed — silently fall back. Expected until the user drops art in.
+      inflight.delete(url);
       cache.set(url, null);
       notify();
     },
   );
 }
 
-/** Loads an optional texture; returns `null` (never throws) until it resolves
- *  or fails, so callers can render a procedural fallback with no asset present. */
+/**
+ * Loads an optional texture; returns `null` (never throws) until it resolves
+ * or fails, so callers can render a procedural fallback with no asset present.
+ *
+ * Deliberately built on `useSyncExternalStore` rather than a plain
+ * `useState`+module-level-`Map` combo: this project has React Compiler
+ * enabled (`app.json` experiments.reactCompiler), which auto-memoizes render
+ * output assuming everything read during render is part of React's own
+ * reactive state — a bare `cache.get(url)` read during render is exactly the
+ * "mutable external value" pattern the compiler can memoize past, silently
+ * keeping components stuck on `null` even after the texture finishes
+ * loading. `useSyncExternalStore` is the React-blessed, compiler-safe way to
+ * subscribe to state that lives outside React.
+ */
 export function useOptionalTexture(url: string): THREE.Texture | null {
-  const [, bump] = useState(0);
-
-  useEffect(() => {
-    if (!cache.has(url)) load(url);
-    let set = listeners.get(url);
-    if (!set) {
-      set = new Set();
-      listeners.set(url, set);
-    }
-    const onChange = () => bump((n) => n + 1);
-    set.add(onChange);
-    return () => {
-      set!.delete(onChange);
-    };
-  }, [url]);
-
-  const v = cache.get(url);
-  return v && v !== 'pending' ? v : null;
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      ensureLoad(url);
+      let set = listeners.get(url);
+      if (!set) {
+        set = new Set();
+        listeners.set(url, set);
+      }
+      set.add(onStoreChange);
+      return () => set!.delete(onStoreChange);
+    },
+    [url],
+  );
+  const getSnapshot = useCallback(() => cache.get(url) ?? null, [url]);
+  return useSyncExternalStore(subscribe, getSnapshot, () => null);
 }

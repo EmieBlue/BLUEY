@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 import { PALETTE, type StoryObjectSpec } from '@/components/landing/introConfig';
 import { stage } from '@/components/landing/stage';
+import { StorySymbol } from '@/components/landing/three/symbol';
 
 /**
  * A single floating story artefact in the hero universe — book / comic panel /
@@ -90,6 +91,8 @@ export function StoryObject({ spec, position, scale = 1, enabled, pointerFine }:
           <Edges scale={1.001} threshold={15} color={PALETTE.gold} />
         )}
       </mesh>
+      {/* The recurring symbol, centred in the portal ring */}
+      {isPortal && <StorySymbol size={0.45} billboard />}
 
       {active && (
         <Html center distanceFactor={9} position={[0, 0.95, 0]} pointerEvents="none">

@@ -33,12 +33,15 @@ export function StorySymbol({
   color = PALETTE.gold,
   spin = true,
   billboard = false,
+  visibleWhen,
 }: {
   size?: number;
   color?: string;
   spin?: boolean;
   /** Always face the camera — for accents on rotating/drifting objects. */
   billboard?: boolean;
+  /** Live getter (reads `stage` directly) — hides the symbol when it returns false. */
+  visibleWhen?: () => boolean;
 }) {
   const texture = useOptionalTexture(ASSET_URL.symbol);
   const group = useRef<THREE.Group>(null);
@@ -50,6 +53,7 @@ export function StorySymbol({
     if (group.current) {
       if (billboard) group.current.quaternion.copy(state.camera.quaternion);
       if (spin && !billboard) group.current.rotation.z = t * 0.25;
+      group.current.visible = visibleWhen ? visibleWhen() : true;
     }
     if (mat.current) mat.current.opacity = 0.7 + Math.sin(t * 2) * 0.18;
   });

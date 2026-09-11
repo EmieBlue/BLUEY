@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import { PALETTE } from '@/components/landing/introConfig';
 import { stage } from '@/components/landing/stage';
+import { StorySymbol } from '@/components/landing/three/symbol';
 
 /**
  * The open page becomes a portal. A runtime-generated radial texture (no asset)
@@ -90,6 +91,14 @@ export function StoryPortal({ position = [0, 0.72, -0.2] as [number, number, num
           toneMapped={false}
         />
       </mesh>
+      {/* The recurring symbol, small and fixed-size (not tied to the disc's huge scale) */}
+      <group position={[0, 0, 0.05]}>
+        <StorySymbol
+          size={0.45}
+          billboard
+          visibleWhen={() => stage.pageEnter > 0.3 || stage.done}
+        />
+      </group>
     </group>
   );
 }
