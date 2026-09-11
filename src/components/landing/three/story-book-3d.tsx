@@ -4,14 +4,18 @@ import * as THREE from 'three';
 
 import { PALETTE } from '@/components/landing/introConfig';
 import { stage } from '@/components/landing/stage';
+import { StorySymbol } from '@/components/landing/three/symbol';
+import { ASSET_URL, useOptionalTexture } from '@/lib/landing-assets';
 
 /**
- * The mysterious floating storybook — all procedural geometry so it needs no
- * asset. Reads `stage.book` each frame:
+ * The mysterious floating storybook. Procedural by default (no asset needed);
+ * once `public/landing/book-cover.jpg` exists it's painted onto the front cover
+ * and the procedural emblem gives way to the real art (which already carries
+ * the symbol). Reads `stage.book` each frame:
  *   appear 0..1  → fade + scale in
  *   glow   0..1  → emissive strength of the gold trim + cover emblem
  *   open   0..1  → front cover swings back, inner pages fan and auto-turn
- *   scale        → extra multiplier (the timeline blows it up on "travel")
+ *   scale        → extra multiplier (the timeline blows it up on "pageEnter")
  *
  * To swap in a real model later: load a GLTF with `useGLTF(modelUrl)` and render
  * it in place of <BookMesh/>, keeping the same three drivers wired to its
@@ -23,9 +27,9 @@ const PAGE = PALETTE.parchment;
 export function StoryBook3D() {
   const root = useRef<THREE.Group>(null);
   const coverPivot = useRef<THREE.Group>(null);
-  const emblem = useRef<THREE.Mesh>(null);
   const pagesFan = useRef<THREE.Group>(null);
   const flipPage = useRef<THREE.Mesh>(null);
+  const coverArt = useOptionalTexture(ASSET_URL.bookCover);
 
   const goldMat = useMemo(
     () =>
@@ -60,9 +64,22 @@ export function StoryBook3D() {
       }),
     [],
   );
+  const coverArtMat = useMemo(
+    () =>
+      coverArt
+        ? new THREE.MeshStandardMaterial({
+            map: coverArt,
+            roughness: 0.5,
+            metalness: 0.1,
+            transparent: true,
+            emissive: new THREE.Color(PALETTE.gold),
+            emissiveIntensity: 0,
+          })
+        : null,
+    [coverArt],
+  );
 
-  useFrame((state, delta) => {
-    const dt = Math.min(delta, 1 / 20);
+  useFrame((state) => {
     const t = state.clock.elapsedTime;
     const { appear, glow, open, scale } = stage.book;
 
@@ -81,6 +98,10 @@ export function StoryBook3D() {
     leatherMat.opacity = op;
     pageMat.opacity = op;
     goldMat.emissiveIntensity += (glow * 1.6 - goldMat.emissiveIntensity) * 0.08;
+    if (coverArtMat) {
+      coverArtMat.opacity = op;
+      coverArtMat.emissiveIntensity += (glow * 0.5 - coverArtMat.emissiveIntensity) * 0.08;
+    }
 
     if (coverPivot.current) {
       // 0 = shut, 1 = swung ~150° open.
@@ -97,11 +118,6 @@ export function StoryBook3D() {
       flipPage.current.visible = open > 0.6;
       // Pages turning by themselves once the book is open.
       flipPage.current.rotation.y = -Math.PI / 2 + Math.sin(t * 1.6) * 1.4;
-    }
-    if (emblem.current) {
-      emblem.current.rotation.z += dt * (0.15 + glow * 0.8);
-      const es = 1 + Math.sin(t * 2) * 0.04 * glow;
-      emblem.current.scale.setScalar(es);
     }
   });
 
@@ -148,18 +164,17 @@ export function StoryBook3D() {
         <mesh material={goldMat} position={[1.98, 0, 0.07]}>
           <boxGeometry args={[0.05, 2.8, 0.02]} />
         </mesh>
-        {/* Glowing emblem */}
-        <group position={[1.02, 0, 0.09]}>
-          <mesh ref={emblem} material={goldMat}>
-            <torusGeometry args={[0.42, 0.05, 12, 40]} />
+
+        {coverArtMat ? (
+          // Real reference art — already carries the symbol, so no procedural emblem on top.
+          <mesh material={coverArtMat} position={[1.02, 0, 0.065]}>
+            <planeGeometry args={[1.85, 2.65]} />
           </mesh>
-          <mesh material={goldMat}>
-            <icosahedronGeometry args={[0.16, 0]} />
-          </mesh>
-          <mesh material={goldMat} rotation={[0, 0, Math.PI / 4]}>
-            <torusGeometry args={[0.24, 0.02, 8, 4]} />
-          </mesh>
-        </group>
+        ) : (
+          <group position={[1.02, 0, 0.09]}>
+            <StorySymbol size={0.42} />
+          </group>
+        )}
       </group>
     </group>
   );

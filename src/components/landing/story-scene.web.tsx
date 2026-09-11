@@ -49,14 +49,15 @@ export default function StoryScene({ phase, profile, onReady }: Props) {
     ].filter(Boolean) as React.ReactElement[];
   }, [profile.postFx]);
 
-  const showBook = isPastPhase(phase, 'book') && !isPastPhase(phase, 'heroText');
-  const showCharacter =
-    !profile.shortSequence && isPastPhase(phase, 'character') && !isPastPhase(phase, 'travel');
-  const showBurst = isPastPhase(phase, 'opening') && !isPastPhase(phase, 'worlds');
+  const showBook = isPastPhase(phase, 'establish') && !isPastPhase(phase, 'heroText');
+  // She bookends the sequence: present while establishing + approaching the book,
+  // fades out once it opens, reappears as the camera pulls out to the universe.
+  const showCharacter = phase === 'establish' || phase === 'book' || isPastPhase(phase, 'pullOut');
+  const showBurst = isPastPhase(phase, 'opening') && !isPastPhase(phase, 'pageEnter');
   const showPortal = isPastPhase(phase, 'opening');
   const showWorlds =
-    profile.worldFragments > 0 && isPastPhase(phase, 'travel') && !isPastPhase(phase, 'reveal');
-  const showUniverse = isPastPhase(phase, 'worlds');
+    profile.worldFragments > 0 && isPastPhase(phase, 'pageEnter') && !isPastPhase(phase, 'pullOut');
+  const showUniverse = isPastPhase(phase, 'worldMorph');
 
   return (
     <Canvas

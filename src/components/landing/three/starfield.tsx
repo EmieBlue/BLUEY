@@ -88,8 +88,8 @@ export function Starfield({ count = 1800 }: { count?: number }) {
       dust.current.rotation.y -= dt * 0.03;
       dust.current.rotation.x = Math.sin(stage.t * Math.PI * 2) * 0.05;
     }
-    // Streak the dust outward while flying through the pages.
-    const stretch = 1 + stage.travel * 5;
+    // Streak the dust outward while pushing into the page.
+    const stretch = 1 + stage.pageEnter * 5;
     if (dust.current) dust.current.scale.z = stretch;
   });
 

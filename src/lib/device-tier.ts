@@ -22,11 +22,11 @@ export type TierProfile = {
   postFx: 'full' | 'bloom' | 'none';
   /** Particle budget for the story-universe ambient field. */
   universeParticles: number;
-  /** How many of the 6 world fragments to actually render during the flythrough. */
+  /** How many of the 4 world-morph stages (castle/forest/comic/video) to render. */
   worldFragments: number;
   /** Interactive floating story objects in the hero. */
   storyObjects: number;
-  /** Use the shorter timeline (skips the character + trims the world montage). */
+  /** Use the shorter timeline (drops the standalone light/pull-out beats). */
   shortSequence: boolean;
   /** Hover isn't a thing on touch devices — fall back to tap. */
   pointerFine: boolean;
@@ -113,7 +113,7 @@ export function getTierProfile(): TierProfile {
     maxDpr: tier === 'high' ? 2 : 1.5,
     postFx: tier === 'high' ? 'full' : tier === 'mid' ? 'bloom' : 'none',
     universeParticles: tier === 'high' ? 4200 : tier === 'mid' ? 1600 : 700,
-    worldFragments: tier === 'high' ? 6 : tier === 'mid' ? 4 : 0,
+    worldFragments: tier === 'high' ? 4 : tier === 'mid' ? 3 : 0,
     storyObjects: tier === 'high' ? 22 : tier === 'mid' ? 12 : 6,
     shortSequence: tier !== 'high',
   };

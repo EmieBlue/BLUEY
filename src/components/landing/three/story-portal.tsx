@@ -7,9 +7,9 @@ import { stage } from '@/components/landing/stage';
 
 /**
  * The open page becomes a portal. A runtime-generated radial texture (no asset)
- * swirls on an additive plane, ringed by a glowing torus. `stage.travel` (0..1)
- * grows it from a bright seam on the page to a screen-filling doorway the camera
- * flies through; it also lingers faintly in the hero universe.
+ * swirls on an additive plane, ringed by a glowing torus. `stage.pageEnter`
+ * (0..1) grows it from a bright seam on the page to a screen-filling doorway
+ * the camera pushes into; it also lingers faintly in the hero universe.
  */
 function makePortalTexture(): THREE.CanvasTexture {
   const size = 256;
@@ -46,7 +46,7 @@ export function StoryPortal({ position = [0, 0.72, -0.2] as [number, number, num
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 1 / 20);
-    const travel = stage.travel;
+    const travel = stage.pageEnter;
     // Small idle presence in the universe once the intro is done.
     const base = stage.done ? 0.12 : 0;
     const scale = THREE.MathUtils.lerp(0.15, 26, travel) + base * 2;

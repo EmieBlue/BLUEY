@@ -4,15 +4,18 @@ import * as THREE from 'three';
 
 import { WORLD_FRAGMENTS, type WorldFragmentSpec } from '@/components/landing/introConfig';
 import { stage } from '@/components/landing/stage';
+import { ASSET_URL, useOptionalTexture } from '@/lib/landing-assets';
 
 /**
- * Scene 4 — the flight through the pages. Rather than six full sets, each world
- * is a shallow diorama of silhouettes over a graded backdrop, stacked at the
- * same spot and cross-faded as `stage.worldIndex` (0..N) sweeps past. They read
- * like half-remembered fragments, which is the intent. Only mounted during the
- * `worlds` phase by the parent, and capped by tier (`limit`).
+ * The `worldMorph` phase — the page becomes castle, then forest, then comic
+ * panels, then a video scene. Each world is a backdrop plane stacked at the
+ * same spot, cross-dissolving as `stage.worldIndex` (0..4) sweeps past — reads
+ * as one world *transforming into* the next, not a slideshow. Renders the real
+ * `/landing/world-<key>.jpg` once the user drops one in; otherwise a graded
+ * gradient + procedural silhouettes. Only mounted during `worldMorph` by the
+ * parent, and capped by tier (`limit`).
  */
-export function WorldFragments({ limit = 6 }: { limit?: number }) {
+export function WorldFragments({ limit = 4 }: { limit?: number }) {
   const specs = WORLD_FRAGMENTS.slice(0, limit);
   return (
     <group position={[0, 0.4, 0]}>
@@ -41,25 +44,25 @@ function gradeTexture([a, b]: [string, string]): THREE.CanvasTexture {
 function Fragment({ spec, index }: { spec: WorldFragmentSpec; index: number }) {
   const group = useRef<THREE.Group>(null);
   const mats = useRef<THREE.Material[]>([]);
-  const tex = useMemo(() => gradeTexture(spec.grade), [spec.grade]);
+  const gradient = useMemo(() => gradeTexture(spec.grade), [spec.grade]);
   const accent = useMemo(() => new THREE.Color(spec.accent), [spec.accent]);
+  const art = useOptionalTexture(ASSET_URL.world(spec.key));
 
-  useFrame((state, delta) => {
-    const dt = Math.min(delta, 1 / 20);
+  useFrame((state) => {
     // Triangular window: fully visible when worldIndex === index.
     const d = Math.abs(stage.worldIndex - index);
-    const vis = THREE.MathUtils.clamp(1 - d * 1.35, 0, 1);
+    const vis = THREE.MathUtils.clamp(1 - d * 1.1, 0, 1);
     const op = vis * vis;
 
     mats.current.forEach((m) => {
       const mm = m as THREE.Material & { opacity: number };
-      mm.opacity += (op - mm.opacity) * 0.25;
+      mm.opacity += (op - mm.opacity) * 0.2;
     });
     if (group.current) {
       group.current.visible = op > 0.01 || vis > 0.01;
       group.current.position.z = -12 + (1 - vis) * -6; // recede as it fades
-      group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.2 + index) * 0.05;
-      group.current.position.x = Math.sin(state.clock.elapsedTime * 0.3 + index) * 0.3;
+      group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.15 + index) * 0.04;
+      group.current.position.x = Math.sin(state.clock.elapsedTime * 0.25 + index) * 0.25;
     }
   });
 
@@ -73,12 +76,17 @@ function Fragment({ spec, index }: { spec: WorldFragmentSpec; index: number }) {
 
   return (
     <group ref={group} position={[0, 0, -12]}>
-      {/* Graded backdrop */}
+      {/* Backdrop — real art if present, else a graded gradient */}
       <mesh position={[0, 0, -3]}>
         <planeGeometry args={[40, 22]} />
-        <meshBasicMaterial ref={register} map={tex} toneMapped={false} depthWrite={false} />
+        <meshBasicMaterial
+          ref={register}
+          map={art ?? gradient}
+          toneMapped={false}
+          depthWrite={false}
+        />
       </mesh>
-      <Silhouettes kind={spec.key} accent={accent} register={register} />
+      {!art && <Silhouettes kind={spec.key} accent={accent} register={register} />}
     </group>
   );
 }
@@ -144,40 +152,10 @@ function Silhouettes({
           ))}
         </group>
       );
-    case 'romance':
-      return (
-        <group position={[0, -1.5, 0]}>
-          <mesh position={[-0.9, 0, 0]}>
-            <capsuleGeometry args={[0.4, 1.6, 4, 12]} />
-            {dark}
-          </mesh>
-          <mesh position={[0.9, 0, 0]}>
-            <capsuleGeometry args={[0.4, 1.6, 4, 12]} />
-            {dark}
-          </mesh>
-          <mesh position={[0, 3, -1]}>
-            <sphereGeometry args={[1.4, 16, 16]} />
-            {lit}
-          </mesh>
-        </group>
-      );
-    case 'future':
-      return (
-        <group position={[0, -3, 0]}>
-          {[-4, -2.4, -0.8, 1, 2.6, 4.2].map((x, i) => (
-            <mesh key={i} position={[x, 2 + (i % 3), 0]}>
-              <boxGeometry args={[0.8, 5 + (i % 3) * 2, 0.8]} />
-              {dark}
-            </mesh>
-          ))}
-          <mesh position={[0, 4, 1]}>
-            <torusGeometry args={[2.2, 0.05, 8, 40]} />
-            {lit}
-          </mesh>
-        </group>
-      );
-    case 'cinema':
+    case 'video':
     default:
+      // A dramatic, cinematic "story caught mid-scene" — a lit horizon line and
+      // a couple of silhouetted figures.
       return (
         <group>
           <mesh>
@@ -191,6 +169,10 @@ function Silhouettes({
           <mesh position={[-2, -0.4, 0.2]}>
             <capsuleGeometry args={[0.3, 1.1, 4, 10]} />
             {lit}
+          </mesh>
+          <mesh position={[1.8, -0.5, 0.2]}>
+            <capsuleGeometry args={[0.28, 1, 4, 10]} />
+            {dark}
           </mesh>
         </group>
       );

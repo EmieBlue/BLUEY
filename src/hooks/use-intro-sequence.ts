@@ -66,10 +66,11 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
   const settleFinalState = useCallback(() => {
     Object.assign(stage.cam, CAMERA.interactive);
     stage.book = { appear: 0, glow: 0.5, open: 1, scale: 1 };
-    stage.character = { appear: 0, walk: 1, reach: 1 };
+    stage.character = { appear: 1, focus: 1 };
     stage.burst = 0;
-    stage.travel = 0;
+    stage.pageEnter = 0;
     stage.worldIndex = 0;
+    stage.pullOut = 1;
     stage.universe = 1;
     stage.vignette = 0.2;
     stage.t = 1;
@@ -180,45 +181,63 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
 }
 
 /* ── Per-phase element drivers ────────────────────────────────────────────── */
+// v2 sequence: establish (character) -> book -> opening -> lightEscape ->
+// pageEnter -> worldMorph (castle->forest->comic->video) -> pullOut -> universe
+// `short` (mobile/mid tier) skips lightEscape + pullOut, so `opening` and
+// `universe` each fold in that skipped beat's payoff.
 function addDrivers(tl: gsap.core.Timeline, phase: ScenePhase, d: number, short: boolean) {
   switch (phase) {
-    case 'universe':
+    case 'establish':
+      // She's already there; a soft vignette pulse + her fading/settling in,
+      // with the book faintly visible nearby (fully appears next phase).
       tl.to(stage, { vignette: 0.5, duration: d * 0.5, ease: 'sine.out' }, '<');
       tl.to(stage, { vignette: 0.32, duration: d * 0.5, ease: 'sine.inOut' }, '>');
+      tl.to(stage.character, { appear: 1, duration: d * 0.6, ease: 'sine.out' }, '<');
+      tl.to(stage.character, { focus: 1, duration: d, ease: 'sine.inOut' }, '<');
+      tl.to(stage.book, { appear: 0.35, duration: d, ease: 'sine.out' }, '<');
       break;
     case 'book':
       tl.to(stage.book, { appear: 1, scale: 1, duration: d * 0.85, ease: 'power2.out' }, '<');
-      if (short) tl.to(stage.book, { glow: 0.55, duration: d, ease: 'sine.inOut' }, '<');
-      break;
-    case 'character':
-      tl.to(stage.character, { appear: 1, duration: d * 0.4, ease: 'sine.out' }, '<');
-      tl.to(stage.character, { walk: 0.7, duration: d, ease: 'none' }, '<');
-      break;
-    case 'approach':
-      tl.to(stage.character, { walk: 1, duration: d, ease: 'power1.out' }, '<');
-      break;
-    case 'reach':
-      tl.to(stage.character, { reach: 1, duration: d, ease: 'power2.inOut' }, '<');
-      tl.to(stage.book, { glow: 1, duration: d, ease: 'sine.inOut' }, '<');
       break;
     case 'opening':
       tl.to(stage.book, { open: 1, duration: d * 0.7, ease: 'power2.inOut' }, '<');
-      tl.to(stage, { burst: 1, duration: d * 0.45, ease: 'power3.out' }, '<');
-      tl.to(stage, { burst: 0.3, duration: d * 0.55, ease: 'sine.out' }, '>');
       tl.to(stage.character, { appear: 0, duration: d * 0.5, ease: 'sine.in' }, '<');
+      if (short) {
+        // lightEscape is skipped on short devices — fold its payoff in here.
+        tl.to(stage, { burst: 1, duration: d * 0.5, ease: 'power3.out' }, '<');
+        tl.to(stage, { burst: 0.3, duration: d * 0.5, ease: 'sine.out' }, '>');
+        tl.to(stage.book, { glow: 1, duration: d, ease: 'sine.inOut' }, '<');
+      }
       break;
-    case 'travel':
-      tl.to(stage, { travel: 1, duration: d, ease: 'power2.in' }, '<');
+    case 'lightEscape':
+      tl.to(stage, { burst: 1, duration: d * 0.5, ease: 'power3.out' }, '<');
+      tl.to(stage, { burst: 0.35, duration: d * 0.5, ease: 'sine.out' }, '>');
+      tl.to(stage.book, { glow: 1, duration: d, ease: 'sine.inOut' }, '<');
+      break;
+    case 'pageEnter':
+      tl.to(stage, { pageEnter: 1, duration: d, ease: 'power2.in' }, '<');
       tl.to(stage.book, { scale: 5.5, duration: d, ease: 'power2.in' }, '<');
       break;
-    case 'worlds':
-      tl.to(stage, { worldIndex: 5.999, duration: d, ease: 'none' }, '<');
+    case 'worldMorph':
+      // Sweeps across all 4 worlds — castle -> forest -> comic -> video.
+      tl.to(stage, { worldIndex: 3.999, duration: d, ease: 'none' }, '<');
       break;
-    case 'reveal':
-      tl.to(stage, { travel: 0, duration: d * 0.4, ease: 'power2.out' }, '<');
+    case 'pullOut':
+      tl.to(stage, { pullOut: 1, duration: d, ease: 'power2.out' }, '<');
+      tl.to(stage, { pageEnter: 0, duration: d * 0.6, ease: 'power2.out' }, '<');
+      tl.to(stage, { universe: 0.4, duration: d, ease: 'power2.out' }, '<');
+      tl.to(stage.book, { appear: 0, scale: 1, duration: d * 0.4, ease: 'sine.in' }, '<');
+      tl.to(stage.character, { appear: 1, duration: d * 0.6, ease: 'sine.out' }, '>');
+      break;
+    case 'universe':
       tl.to(stage, { universe: 1, duration: d, ease: 'power2.out' }, '<');
       tl.to(stage, { vignette: 0.22, duration: d, ease: 'sine.inOut' }, '<');
-      tl.to(stage.book, { appear: 0, scale: 1, duration: d * 0.3, ease: 'sine.in' }, '<');
+      if (short) {
+        // pullOut is skipped on short devices — fold its payoff in here.
+        tl.to(stage, { pageEnter: 0, duration: d * 0.3, ease: 'power2.out' }, '<');
+        tl.to(stage.book, { appear: 0, scale: 1, duration: d * 0.3, ease: 'sine.in' }, '<');
+        tl.to(stage.character, { appear: 1, duration: d * 0.5, ease: 'sine.out' }, '<');
+      }
       break;
     case 'heroText':
       tl.to(stage, { universe: 1, duration: d, ease: 'none' }, '<');

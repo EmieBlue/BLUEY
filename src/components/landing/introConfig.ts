@@ -27,28 +27,28 @@ export const PALETTE = {
 /* ── Timeline ─────────────────────────────────────────────────────────────── */
 // Each phase's DURATION in seconds. The full run is the sum; the trimmed
 // (mobile / mid-tier) run only plays the phases listed in SHORT_SEQUENCE.
+// Sequence: establish (character) -> book -> opening -> lightEscape ->
+// pageEnter -> worldMorph (castle->forest->comic->video) -> pullOut -> universe
 export const PHASE_SECONDS: Record<Exclude<IntroPhase, 'loading' | 'interactive'>, number> = {
-  universe: 3,
+  establish: 4,
   book: 3,
-  character: 4,
-  approach: 4,
-  reach: 3,
-  opening: 4,
-  travel: 4,
-  worlds: 7,
-  reveal: 5,
+  opening: 3,
+  lightEscape: 2,
+  pageEnter: 3,
+  worldMorph: 9,
+  pullOut: 3,
+  universe: 4,
   heroText: 3,
 };
 
-/** Phases kept in the trimmed sequence (no character, condensed world montage). */
+/** Phases kept in the trimmed sequence (skips the standalone light/pull-out beats). */
 export const SHORT_SEQUENCE: IntroPhase[] = [
-  'universe',
+  'establish',
   'book',
-  'reach',
   'opening',
-  'travel',
-  'worlds',
-  'reveal',
+  'pageEnter',
+  'worldMorph',
+  'universe',
   'heroText',
 ];
 
@@ -67,35 +67,37 @@ export type CamKey = {
 };
 
 export const CAMERA: Record<Exclude<IntroPhase, 'loading'>, CamKey> = {
-  universe:    { px: 0,    py: 1.6,  pz: 12,   tx: 0,    ty: 0.4,  tz: 0,  fov: 58 },
-  book:        { px: 0,    py: 1.1,  pz: 7.4,  tx: 0,    ty: 0.6,  tz: 0,  fov: 52 },
-  character:   { px: 0.35, py: 0.9,  pz: 7.6,  tx: -0.5, ty: 0.35, tz: 0,  fov: 54 },
-  approach:    { px: 0.2,  py: 0.85, pz: 6.8,  tx: -0.3, ty: 0.45, tz: 0,  fov: 51 },
-  reach:       { px: 0.1,  py: 0.8,  pz: 6,    tx: -0.15, ty: 0.6, tz: 0,  fov: 49 },
-  opening:     { px: 0,    py: 0.8,  pz: 4.6,  tx: 0,   ty: 0.8, tz: 0,   fov: 46 },
-  travel:      { px: 0,    py: 0.4,  pz: 1.2,  tx: 0,   ty: 0.4, tz: -6,  fov: 62 },
-  worlds:      { px: 0,    py: 0,    pz: -4,   tx: 0,   ty: 0,   tz: -16, fov: 70 },
-  reveal:      { px: 0,    py: 1.0,  pz: 14,   tx: 0,   ty: 0.5, tz: -2,  fov: 55 },
-  heroText:    { px: 0,    py: 1.1,  pz: 13,   tx: 0,   ty: 0.6, tz: -2,  fov: 54 },
-  interactive: { px: 0,    py: 1.1,  pz: 13,   tx: 0,   ty: 0.6, tz: -2,  fov: 54 },
+  // She's already there, standing near the floating book — camera drifts to reveal both.
+  establish:   { px: 0.9,  py: 0.95, pz: 8,    tx: -0.4, ty: 0.55, tz: 0,   fov: 50 },
+  book:        { px: 0,    py: 1.05, pz: 7.2,  tx: 0.15, ty: 0.65, tz: 0,   fov: 50 },
+  opening:     { px: 0,    py: 0.85, pz: 5.2,  tx: 0,    ty: 0.8,  tz: 0,   fov: 47 },
+  lightEscape: { px: 0,    py: 0.75, pz: 4.2,  tx: 0,    ty: 0.85, tz: 0,   fov: 50 },
+  pageEnter:   { px: 0,    py: 0.4,  pz: 1,    tx: 0,    ty: 0.4,  tz: -8,  fov: 64 },
+  // Camera holds relatively steady here — the WORLDS morph past it, it doesn't fly.
+  worldMorph:  { px: 0,    py: 0.1,  pz: -3,   tx: 0,    ty: 0.1,  tz: -14, fov: 58 },
+  pullOut:     { px: 0,    py: 1,    pz: 9,    tx: 0,    ty: 0.5,  tz: -3,  fov: 54 },
+  universe:    { px: 0,    py: 1.2,  pz: 15,   tx: 0,    ty: 0.55, tz: -2,  fov: 56 },
+  heroText:    { px: 0,    py: 1.15, pz: 14,   tx: 0,    ty: 0.6,  tz: -2,  fov: 55 },
+  interactive: { px: 0,    py: 1.15, pz: 14,   tx: 0,    ty: 0.6,  tz: -2,  fov: 55 },
 };
 
-/* ── World fragments (Scene 4 flythrough) ─────────────────────────────────── */
+/* ── World-morph (page becomes castle -> forest -> comic panels -> video) ──── */
 export type WorldFragmentSpec = {
   key: string;
   label: string;
-  /** Two-stop gradient the fragment is colour-graded toward. */
+  /** Two-stop gradient the fragment is colour-graded toward (procedural fallback). */
   grade: [string, string];
   accent: string;
 };
 
+// Order matters — this is the literal morph chain, not a shuffled montage.
+// Each optionally reads `/landing/world-<key>.jpg` (see landing-assets.ts) and
+// falls back to the graded procedural silhouette when that file is absent.
 export const WORLD_FRAGMENTS: WorldFragmentSpec[] = [
-  { key: 'castle',    label: 'A kingdom above the clouds', grade: ['#1b3a6b', '#0a1830'], accent: '#cfe0ff' },
-  { key: 'forest',    label: 'A forest that glows',        grade: ['#0f3d2e', '#04140f'], accent: '#6bf0b8' },
-  { key: 'comic',     label: 'Panels of ink and thunder',  grade: ['#3a1f10', '#160a04'], accent: '#ffcf6b' },
-  { key: 'romance',   label: 'Two hearts under the lights', grade: ['#3a1030', '#160616'], accent: '#ff9ecb' },
-  { key: 'future',    label: 'A city of holograms',        grade: ['#0a2a3a', '#04121a'], accent: '#7be0ff' },
-  { key: 'cinema',    label: 'A story caught mid-frame',    grade: ['#241a12', '#0c0906'], accent: '#f0d6a8' },
+  { key: 'castle', label: 'A kingdom above the clouds', grade: ['#1b3a6b', '#0a1830'], accent: '#cfe0ff' },
+  { key: 'forest', label: 'A forest that glows', grade: ['#0f3d2e', '#04140f'], accent: '#6bf0b8' },
+  { key: 'comic', label: 'Panels of ink and thunder', grade: ['#3a1f10', '#160a04'], accent: '#ffcf6b' },
+  { key: 'video', label: 'A story caught mid-scene', grade: ['#3a1030', '#0c0906'], accent: '#ff9ecb' },
 ];
 
 /* ── Floating story objects (Scene 5 hero) ────────────────────────────────── */
