@@ -34,6 +34,7 @@ export function StorySymbol({
   spin = true,
   billboard = false,
   visibleWhen,
+  opacity,
 }: {
   size?: number;
   color?: string;
@@ -42,6 +43,8 @@ export function StorySymbol({
   billboard?: boolean;
   /** Live getter (reads `stage` directly) — hides the symbol when it returns false. */
   visibleWhen?: () => boolean;
+  /** Live getter multiplied into the built-in pulse — for fading the symbol in/out. */
+  opacity?: () => number;
 }) {
   const texture = useOptionalTexture(ASSET_URL.symbol);
   const group = useRef<THREE.Group>(null);
@@ -55,7 +58,10 @@ export function StorySymbol({
       if (spin && !billboard) group.current.rotation.z = t * 0.25;
       group.current.visible = visibleWhen ? visibleWhen() : true;
     }
-    if (mat.current) mat.current.opacity = 0.7 + Math.sin(t * 2) * 0.18;
+    if (mat.current) {
+      const pulse = 0.7 + Math.sin(t * 2) * 0.18;
+      mat.current.opacity = opacity ? pulse * THREE.MathUtils.clamp(opacity(), 0, 1) : pulse;
+    }
   });
 
   return (

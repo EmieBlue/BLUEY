@@ -47,6 +47,7 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
   const elapsedRef = useRef(0);
   const lastTsRef = useRef<number | null>(null);
   const startedRef = useRef(false);
+  const pausedRef = useRef(false);
   const phaseRef = useRef<IntroPhase>('loading');
   // Bumped on every run/skip/replay so an in-flight rAF step from a previous run
   // bails instead of resurrecting the loop.
@@ -65,12 +66,10 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
 
   const settleFinalState = useCallback(() => {
     Object.assign(stage.cam, CAMERA.interactive);
-    stage.book = { appear: 0, glow: 0.5, open: 1, scale: 1 };
+    stage.book = { appear: 0, glow: 0.5, open: 0, scale: 1 };
     stage.character = { appear: 1, focus: 1 };
     stage.burst = 0;
-    stage.pageEnter = 0;
-    stage.worldIndex = 0;
-    stage.pullOut = 1;
+    stage.symbolSting = 0;
     stage.universe = 1;
     stage.vignette = 0.2;
     stage.t = 1;
@@ -115,7 +114,7 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
       if (runIdRef.current !== myRun) return; // superseded by skip/replay/unmount
       if (lastTsRef.current == null) lastTsRef.current = ts;
       // Clamp: a hidden tab must slow the intro, never skip scenes.
-      const dt = Math.min((ts - lastTsRef.current) / 1000, 0.08);
+      const dt = pausedRef.current ? 0 : Math.min((ts - lastTsRef.current) / 1000, 0.08);
       lastTsRef.current = ts;
       elapsedRef.current += dt;
 
@@ -126,7 +125,7 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
       const seg = schedule.find((s) => t < s.end) ?? schedule[schedule.length - 1];
       applyPhase(seg.phase);
 
-      if (elapsedRef.current < total) {
+      if (elapsedRef.current < total || pausedRef.current) {
         rafRef.current = requestAnimationFrame(step);
       } else {
         settleFinalState();
@@ -136,10 +135,19 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
 
     rafRef.current = requestAnimationFrame(step);
 
-    // Dev helper: `__elyraSeek(seconds)` to jump the playhead while tuning.
+    // Dev helpers for tuning: jump the playhead, and freeze it so a given
+    // moment can actually be looked at (otherwise it keeps running as you look).
     if (typeof window !== 'undefined') {
-      (window as unknown as { __elyraSeek?: (s: number) => void }).__elyraSeek = (s: number) => {
+      const w = window as unknown as {
+        __elyraSeek?: (s: number) => void;
+        __elyraPause?: (v?: boolean) => boolean;
+      };
+      w.__elyraSeek = (s: number) => {
         elapsedRef.current = Math.max(0, Math.min(s, total));
+      };
+      w.__elyraPause = (v = true) => {
+        pausedRef.current = !!v;
+        return pausedRef.current;
       };
     }
   }, [build, applyPhase, settleFinalState]);
@@ -181,63 +189,44 @@ export function useIntroSequence({ ready, short = false, onPhase }: Options): In
 }
 
 /* ── Per-phase element drivers ────────────────────────────────────────────── */
-// v2 sequence: establish (character) -> book -> opening -> lightEscape ->
-// pageEnter -> worldMorph (castle->forest->comic->video) -> pullOut -> universe
-// `short` (mobile/mid tier) skips lightEscape + pullOut, so `opening` and
-// `universe` each fold in that skipped beat's payoff.
-function addDrivers(tl: gsap.core.Timeline, phase: ScenePhase, d: number, short: boolean) {
+// Scenes 1-3 of the full brief only (README.md has the complete planned
+// sequence — Scenes 4-14 aren't built yet, so `universe` here is a temporary
+// hand-off into the existing hero reveal rather than the real Scene 7-14 bridge).
+// `short` isn't branched on yet — nothing to trim at this length; kept for when
+// Scenes 4-14 add mobile-skippable beats.
+function addDrivers(tl: gsap.core.Timeline, phase: ScenePhase, d: number, _short: boolean) {
   switch (phase) {
-    case 'establish':
-      // She's already there; a soft vignette pulse + her fading/settling in,
-      // with the book faintly visible nearby (fully appears next phase).
-      tl.to(stage, { vignette: 0.5, duration: d * 0.5, ease: 'sine.out' }, '<');
-      tl.to(stage, { vignette: 0.32, duration: d * 0.5, ease: 'sine.inOut' }, '>');
-      tl.to(stage.character, { appear: 1, duration: d * 0.6, ease: 'sine.out' }, '<');
-      tl.to(stage.character, { focus: 1, duration: d, ease: 'sine.inOut' }, '<');
-      tl.to(stage.book, { appear: 0.35, duration: d, ease: 'sine.out' }, '<');
+    case 'darkness':
+      // Nothing but atmosphere and a brief symbol "sting" — no character, no book yet.
+      tl.to(stage, { vignette: 0.35, duration: d * 0.6, ease: 'sine.out' }, '<');
+      tl.to(stage, { symbolSting: 1, duration: d * 0.35, ease: 'sine.out' }, '<');
+      tl.to(stage, { symbolSting: 0, duration: d * 0.45, ease: 'sine.in' }, '>');
       break;
-    case 'book':
-      tl.to(stage.book, { appear: 1, scale: 1, duration: d * 0.85, ease: 'power2.out' }, '<');
+    case 'explorer':
+      // She fades in and is idle/looking around (handled in the component itself);
+      // a partial turn begins as she "notices" the book, which is just a soft
+      // glow at the frame's edge for now — not yet in focus.
+      tl.to(stage.character, { appear: 1, duration: d * 0.5, ease: 'sine.out' }, '<');
+      // Only a hint of a turn here — she stays mostly front-on for her reveal,
+      // and completes the turn to the book in Scene 3.
+      tl.to(stage.character, { focus: 0.22, duration: d, ease: 'sine.inOut' }, '<');
+      tl.to(stage.book, { appear: 0.25, duration: d * 0.4, ease: 'sine.out' }, '<');
+      tl.to(stage, { vignette: 0.3, duration: d, ease: 'sine.inOut' }, '<');
       break;
-    case 'opening':
-      tl.to(stage.book, { open: 1, duration: d * 0.7, ease: 'power2.inOut' }, '<');
-      tl.to(stage.character, { appear: 0, duration: d * 0.5, ease: 'sine.in' }, '<');
-      if (short) {
-        // lightEscape is skipped on short devices — fold its payoff in here.
-        tl.to(stage, { burst: 1, duration: d * 0.5, ease: 'power3.out' }, '<');
-        tl.to(stage, { burst: 0.3, duration: d * 0.5, ease: 'sine.out' }, '>');
-        tl.to(stage.book, { glow: 1, duration: d, ease: 'sine.inOut' }, '<');
-      }
-      break;
-    case 'lightEscape':
-      tl.to(stage, { burst: 1, duration: d * 0.5, ease: 'power3.out' }, '<');
-      tl.to(stage, { burst: 0.35, duration: d * 0.5, ease: 'sine.out' }, '>');
-      tl.to(stage.book, { glow: 1, duration: d, ease: 'sine.inOut' }, '<');
-      break;
-    case 'pageEnter':
-      tl.to(stage, { pageEnter: 1, duration: d, ease: 'power2.in' }, '<');
-      tl.to(stage.book, { scale: 5.5, duration: d, ease: 'power2.in' }, '<');
-      break;
-    case 'worldMorph':
-      // Sweeps across all 4 worlds — castle -> forest -> comic -> video.
-      tl.to(stage, { worldIndex: 3.999, duration: d, ease: 'none' }, '<');
-      break;
-    case 'pullOut':
-      tl.to(stage, { pullOut: 1, duration: d, ease: 'power2.out' }, '<');
-      tl.to(stage, { pageEnter: 0, duration: d * 0.6, ease: 'power2.out' }, '<');
-      tl.to(stage, { universe: 0.4, duration: d, ease: 'power2.out' }, '<');
-      tl.to(stage.book, { appear: 0, scale: 1, duration: d * 0.4, ease: 'sine.in' }, '<');
-      tl.to(stage.character, { appear: 1, duration: d * 0.6, ease: 'sine.out' }, '>');
+    case 'bookDiscovered':
+      tl.to(stage.book, { appear: 1, duration: d * 0.6, ease: 'power2.out' }, '<');
+      tl.to(stage.book, { glow: 0.5, duration: d, ease: 'sine.inOut' }, '<');
+      tl.to(stage.character, { focus: 1, duration: d * 0.8, ease: 'sine.inOut' }, '<');
+      tl.to(stage, { vignette: 0.24, duration: d, ease: 'sine.inOut' }, '<');
       break;
     case 'universe':
+      // Temporary — a brief flash stands in for the not-yet-built Scene 4-14
+      // journey (walk/touch/open/fly-through) so the cut doesn't feel broken.
+      tl.to(stage, { burst: 0.6, duration: d * 0.25, ease: 'power3.out' }, '<');
+      tl.to(stage, { burst: 0, duration: d * 0.5, ease: 'sine.out' }, '>');
+      tl.to(stage.book, { appear: 0, duration: d * 0.35, ease: 'sine.in' }, '<');
       tl.to(stage, { universe: 1, duration: d, ease: 'power2.out' }, '<');
       tl.to(stage, { vignette: 0.22, duration: d, ease: 'sine.inOut' }, '<');
-      if (short) {
-        // pullOut is skipped on short devices — fold its payoff in here.
-        tl.to(stage, { pageEnter: 0, duration: d * 0.3, ease: 'power2.out' }, '<');
-        tl.to(stage.book, { appear: 0, scale: 1, duration: d * 0.3, ease: 'sine.in' }, '<');
-        tl.to(stage.character, { appear: 1, duration: d * 0.5, ease: 'sine.out' }, '<');
-      }
       break;
     case 'heroText':
       tl.to(stage, { universe: 1, duration: d, ease: 'none' }, '<');

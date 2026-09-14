@@ -7,19 +7,16 @@
  *
  * Mirrors the pattern already used by `src/lib/pointer.ts`.
  *
- * Sequence (v2 — reference-art restructure):
- *   establish → book → opening → lightEscape → pageEnter → worldMorph → pullOut →
- *   universe → heroText → interactive
+ * Sequence (Scenes 1-3 of the full brief — see src/components/landing/README.md
+ * for the complete planned sequence and what's not built yet):
+ *   darkness → explorer → bookDiscovered → [temporary hand-off] → universe →
+ *   heroText → interactive
  */
 export type IntroPhase =
   | 'loading'
-  | 'establish'
-  | 'book'
-  | 'opening'
-  | 'lightEscape'
-  | 'pageEnter'
-  | 'worldMorph'
-  | 'pullOut'
+  | 'darkness'
+  | 'explorer'
+  | 'bookDiscovered'
   | 'universe'
   | 'heroText'
   | 'interactive';
@@ -27,13 +24,9 @@ export type IntroPhase =
 /** Ordered — used to compare "are we past phase X yet". */
 export const PHASE_ORDER: IntroPhase[] = [
   'loading',
-  'establish',
-  'book',
-  'opening',
-  'lightEscape',
-  'pageEnter',
-  'worldMorph',
-  'pullOut',
+  'darkness',
+  'explorer',
+  'bookDiscovered',
   'universe',
   'heroText',
   'interactive',
@@ -48,15 +41,14 @@ export type StageState = {
   /** The viewer pressed "Skip Intro" — components can hard-cut instead of easing. */
   skipped: boolean;
 
+  /** The Scene-1 symbol "sting" — fades in, holds, fades out. */
+  symbolSting: number;
   /** Per-element 0..1 drivers the timeline eases; components map them to transforms. */
   book: { appear: number; glow: number; open: number; scale: number };
-  /** `appear` fades the character in; `focus` 0→1 is her "noticing/turning to" beat
-   *  in `establish` and stays 1 through `universe` — she never walks, only turns/settles. */
+  /** `appear` fades her in; `focus` 0→1 is her turning to notice/face the book
+   *  (she never walks in this pass — that's Scene 4, not built yet). */
   character: { appear: number; focus: number };
   burst: number;
-  pageEnter: number; // 0..1 push into the page/portal
-  worldIndex: number; // 0..4 float — which of the 4 morph worlds is centred
-  pullOut: number; // 0..1 camera/FOV pull-back for the universe reveal
   universe: number; // ambient hero field opacity / assembly
   vignette: number;
 
@@ -72,7 +64,7 @@ export type StageState = {
   };
 };
 
-const INITIAL_CAM = { px: 0, py: 1.2, pz: 9, tx: 0, ty: 0.6, tz: 0, fov: 55 };
+const INITIAL_CAM = { px: 0, py: 0.9, pz: 14, tx: 0, ty: 0.7, tz: 0, fov: 45 };
 
 function initial(): StageState {
   return {
@@ -80,12 +72,10 @@ function initial(): StageState {
     phase: 'loading',
     done: false,
     skipped: false,
+    symbolSting: 0,
     book: { appear: 0, glow: 0, open: 0, scale: 1 },
     character: { appear: 0, focus: 0 },
     burst: 0,
-    pageEnter: 0,
-    worldIndex: 0,
-    pullOut: 0,
     universe: 0,
     vignette: 0,
     cam: { ...INITIAL_CAM },

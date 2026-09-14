@@ -78,7 +78,7 @@ export function Starfield({ count = 1800 }: { count?: number }) {
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 20);
-    // Fade both layers in over the first beat of the timeline, then hold.
+    // Scene 1: the only thing in the dark is these, drifting slowly into being.
     const fade = THREE.MathUtils.clamp(stage.t * 7, 0, 1);
     starMat.opacity += (fade * 0.9 - starMat.opacity) * 0.05;
     dustMat.opacity += (fade * 0.7 - dustMat.opacity) * 0.05;
@@ -88,9 +88,6 @@ export function Starfield({ count = 1800 }: { count?: number }) {
       dust.current.rotation.y -= dt * 0.03;
       dust.current.rotation.x = Math.sin(stage.t * Math.PI * 2) * 0.05;
     }
-    // Streak the dust outward while pushing into the page.
-    const stretch = 1 + stage.pageEnter * 5;
-    if (dust.current) dust.current.scale.z = stretch;
   });
 
   return (

@@ -24,33 +24,30 @@ export const PALETTE = {
   textDim: 'rgba(236,247,242,0.66)',
 };
 
+/* ── World positions (shared between the character, the book and the camera) ─ */
+// She stands off-centre; the book sits apart from her, out of full view until
+// Scene 3 — Scene 2 is about her alone, with the book only a soft glow at the
+// frame's edge. Ground level for both is the same so she visibly "stands".
+export const GROUND_Y = -0.95;
+export const CHARACTER_POS: [number, number, number] = [-1.2, GROUND_Y, 0.3];
+// Floats at roughly her chest height — close enough that reaching out to touch
+// it in Scene 5 will read naturally, high enough to look suspended, not resting.
+export const BOOK_POS: [number, number, number] = [2.0, 0.15, -1.6];
+
 /* ── Timeline ─────────────────────────────────────────────────────────────── */
-// Each phase's DURATION in seconds. The full run is the sum; the trimmed
-// (mobile / mid-tier) run only plays the phases listed in SHORT_SEQUENCE.
-// Sequence: establish (character) -> book -> opening -> lightEscape ->
-// pageEnter -> worldMorph (castle->forest->comic->video) -> pullOut -> universe
+// Each phase's DURATION in seconds. Scenes 1-3 of the full brief only (see
+// README.md for the complete planned sequence — Scenes 4-14 aren't built yet).
 export const PHASE_SECONDS: Record<Exclude<IntroPhase, 'loading' | 'interactive'>, number> = {
-  establish: 4,
-  book: 3,
-  opening: 3,
-  lightEscape: 2,
-  pageEnter: 3,
-  worldMorph: 9,
-  pullOut: 3,
+  darkness: 4,
+  explorer: 6,
+  bookDiscovered: 5,
   universe: 4,
   heroText: 3,
 };
 
-/** Phases kept in the trimmed sequence (skips the standalone light/pull-out beats). */
-export const SHORT_SEQUENCE: IntroPhase[] = [
-  'establish',
-  'book',
-  'opening',
-  'pageEnter',
-  'worldMorph',
-  'universe',
-  'heroText',
-];
+/** Currently identical to the full sequence — nothing to trim yet at this length;
+ *  mobile/mid-tier gets its cuts back once Scenes 4-14 land. */
+export const SHORT_SEQUENCE: IntroPhase[] = ['darkness', 'explorer', 'bookDiscovered', 'universe', 'heroText'];
 
 /** Minimum time the loading screen stays up even if the bundle is warm (ms). */
 export const MIN_LOADING_MS = 850;
@@ -66,19 +63,22 @@ export type CamKey = {
   fov: number;
 };
 
+// Note on framing: aim `t*` at what should be CENTRED in frame, not above it.
+// She spans y -0.95..0.75, so her centre is ~y=-0.05 — targeting y=0.85 would
+// put her at the bottom edge.
 export const CAMERA: Record<Exclude<IntroPhase, 'loading'>, CamKey> = {
-  // She's already there, standing near the floating book — camera drifts to reveal both.
-  establish:   { px: 0.9,  py: 0.95, pz: 8,    tx: -0.4, ty: 0.55, tz: 0,   fov: 50 },
-  book:        { px: 0,    py: 1.05, pz: 7.2,  tx: 0.15, ty: 0.65, tz: 0,   fov: 50 },
-  opening:     { px: 0,    py: 0.85, pz: 5.2,  tx: 0,    ty: 0.8,  tz: 0,   fov: 47 },
-  lightEscape: { px: 0,    py: 0.75, pz: 4.2,  tx: 0,    ty: 0.85, tz: 0,   fov: 50 },
-  pageEnter:   { px: 0,    py: 0.4,  pz: 1,    tx: 0,    ty: 0.4,  tz: -8,  fov: 64 },
-  // Camera holds relatively steady here — the WORLDS morph past it, it doesn't fly.
-  worldMorph:  { px: 0,    py: 0.1,  pz: -3,   tx: 0,    ty: 0.1,  tz: -14, fov: 58 },
-  pullOut:     { px: 0,    py: 1,    pz: 9,    tx: 0,    ty: 0.5,  tz: -3,  fov: 54 },
-  universe:    { px: 0,    py: 1.2,  pz: 15,   tx: 0,    ty: 0.55, tz: -2,  fov: 56 },
-  heroText:    { px: 0,    py: 1.15, pz: 14,   tx: 0,    ty: 0.6,  tz: -2,  fov: 55 },
-  interactive: { px: 0,    py: 1.15, pz: 14,   tx: 0,    ty: 0.6,  tz: -2,  fov: 55 },
+  // Almost nothing happens — a barely-perceptible forward drift.
+  darkness:       { px: -1.8, py: 0.5,  pz: 7.5, tx: -1.0,  ty: 0.2,   tz: 0.2,  fov: 45 },
+  // Over-the-shoulder: camera behind/left of her, she's a backlit silhouette in
+  // the foreground, the book's glow beyond her shoulder to the right.
+  explorer:       { px: -3.7, py: 0.35, pz: 2.1, tx: -1.15, ty: 0.05,  tz: 0.25, fov: 42 },
+  // Wide two-shot: she holds the left of frame in profile, the book is the
+  // subject to the right, at a three-quarter angle so its thickness reads.
+  bookDiscovered: { px: -2.6, py: 0.55, pz: 2.6, tx: 0.5,   ty: 0.0,   tz: -0.7, fov: 52 },
+  // Temporary hand-off into the existing hero reveal — Scenes 4-14 will bridge this properly.
+  universe:       { px: 0,    py: 1.2,  pz: 15,  tx: 0,    ty: 0.55, tz: -2,   fov: 56 },
+  heroText:       { px: 0,    py: 1.15, pz: 14,  tx: 0,    ty: 0.6,  tz: -2,   fov: 55 },
+  interactive:    { px: 0,    py: 1.15, pz: 14,  tx: 0,    ty: 0.6,  tz: -2,   fov: 55 },
 };
 
 /* ── World-morph (page becomes castle -> forest -> comic panels -> video) ──── */

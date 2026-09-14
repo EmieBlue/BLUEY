@@ -42,6 +42,14 @@ export function LandingStyles() {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
+/* Scene 1: the symbol surfaces, holds, and is gone — over the darkness phase. */
+@keyframes elyra-sting {
+  0%   { opacity: 0; transform: scale(0.86); }
+  30%  { opacity: 1; transform: scale(1); }
+  62%  { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+.elyra-sting { animation: elyra-sting 4s ease-in-out both; }
 .elyra-skipflash { animation: elyra-skipflash .45s ease forwards; }
 
 /* Headline glow-sweep — a highlight that passes across the text once revealed. */
