@@ -26,6 +26,9 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin GETs; never touch functions or cross-origin APIs.
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/.netlify/')) return;
+  // Let the browser stream and seek video directly. Cache.put cannot store
+  // partial (206) responses, and full movies should not fill the offline cache.
+  if (req.headers.has('range') || req.destination === 'video' || /\.(mp4|webm)$/i.test(url.pathname)) return;
 
   event.respondWith(
     fetch(req)

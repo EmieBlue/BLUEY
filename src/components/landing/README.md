@@ -1,89 +1,73 @@
-# Cinematic landing (`src/components/landing/`)
+# Video landing intro
 
-The signed-out **web** home (`/`). Native apps keep `WelcomeHero` — Metro loads
-`cinematic-landing.tsx` there instead of `cinematic-landing.web.tsx`, so no
-three.js ships in the app bundle.
+The signed-out website home at `/` uses the user's supplied cinematic video.
+It is part of the Expo app, not `Downloads/Elyra-Promo.html`.
 
-## Flow
+## Active flow
 
 ```
-(tabs)/index.tsx  ──!user && web──▶  <CinematicLanding/>  (cinematic-landing.web.tsx)
-                                          │
-             reduced-motion / weak GPU / already seen ──▶ <CalmLanding/>   (CSS only, no WebGL)
-                                          │
-                          first visit    └──▶ <CinematicIntro/>
-                                                 ├─ <StoryScene/>   lazy — three/R3F/drei/postprocessing
-                                                 ├─ <LoadingScreen/> <SkipIntro/> <HeroText/> <Navigation/> <AmbientAudio/>
-                                                 └─ useIntroSequence()  — the timeline + phase machine
+src/app/(tabs)/index.tsx
+  -> cinematic-landing.web.tsx (visit and accessibility preferences)
+  -> cinematic-intro.web.tsx (HTML video playback and recovery)
+  -> video-landing-ui.tsx (website reveal and existing navigation actions)
 ```
 
-The sequence advances through phases `loading → establish → book → opening →
-lightEscape → pageEnter → worldMorph → pullOut → universe → heroText →
-interactive`: she's already standing by the floating book → it opens → light
-escapes → the camera pushes into the page → the page becomes a castle, which
-becomes a forest, which becomes comic panels, which becomes a video scene →
-everything pulls back outward → the Story Universe hero appears. A
-module-level `stage` object (`stage.ts`) holds the live values; the timeline
-(`src/hooks/use-intro-sequence.ts`) eases them via a clamped
-`requestAnimationFrame` loop seeking a paused GSAP timeline (immune to
-background-tab throttling — see the comment at the top of that file), the R3F
-components read them every frame, and React only re-renders on the coarse
-`phase`.
+`video-intro-config.ts` identifies the media files and visit-storage key.
+`video-intro-state.ts` handles playback state and autoplay policy.
+`video-landing-styles.tsx` contains scoped desktop/mobile styles.
 
-## Customise
+The former Three.js components remain as inactive development work. The active
+landing no longer imports the scene, probes a GPU, loads a GLB or runs GSAP.
+Signed-in home, native screens, authentication and backend code are unchanged.
 
-Almost everything is in **`introConfig.ts`**:
+## Media
 
-| Want to change… | Edit |
-| --- | --- |
-| Colours | `PALETTE` |
-| Scene lengths / whole timing | `PHASE_SECONDS`, `SHORT_SEQUENCE` |
-| Camera moves | `CAMERA` (position `p*`, look-at `t*`, `fov`) |
-| The 4 world-morph stages | `WORLD_FRAGMENTS` (order = the morph chain — castle→forest→comic→video) |
-| Floating hero titles | `STORY_OBJECTS` |
-| Headline / buttons / nav links | `HERO_COPY`, `NAV_LINKS` |
-| Replay the intro for everyone | bump `SEEN_KEY` |
+- `public/landing/BlueyClub_intro.mp4`: supplied original, preserved unchanged.
+- `public/landing/blueyclub-intro-web.mp4`: H.264 1280x720 web copy, about 11 MB,
+  with the MP4 metadata before the media data for progressive playback.
+- `public/landing/blueyclub-intro-opening.jpg`: opening-symbol loading poster.
+- `public/landing/blueyclub-intro-poster.jpg`: final universe frame, used after
+  completion, skipping, reduced motion, data saving, or playback failure.
 
-Device tiers (particle counts, post-FX, short vs full sequence, how many of
-the 4 world stages render) live in `src/lib/device-tier.ts`.
+The supplied movie has no audio track. `INTRO_MEDIA.hasAudio` is false so the
+page does not show a nonfunctional sound control. Enable it only if a future
+replacement actually contains audio. Playback starts muted.
 
-## Reference art (optional — see `public/landing/README.md`)
+## Behavior
 
-Every visual piece is procedural by default (no asset required). Drop
-matching files into `public/landing/` and each one upgrades automatically on
-refresh, no code change or rebuild needed:
+First-time visitors get the video. After completion or skip, returning visitors
+get the final landing and can select Watch the intro. Replay starts from zero.
+The video is not mounted or downloaded for reduced-motion/data-saving visits.
+Explicit replay remains available. A motion preference change stops playback.
 
-- `book-cover.jpg` → painted onto `StoryBook3D`'s front cover (replaces the
-  procedural emblem — the art is expected to already carry the symbol).
-- `symbol.png` → the recurring glowing emblem used on the book (when no cover
-  art) and as an accent on portals/hero objects (`three/symbol.tsx`).
-- `character.png` → a soft rim-lit cutout for the story explorer, in place of
-  the original stylized hooded-silhouette figure (`three/story-character.tsx`).
-- `world-<castle|forest|comic|video>.jpg` → each world-morph backdrop, in
-  place of the graded-gradient + procedural silhouette (`three/world-fragment.tsx`).
+Skip is available during loading as well as playback; Escape also skips.
+Pause/resume controls remain available. Blocked autoplay offers a Play button.
+Errors or 15 seconds of loading/buffering reveal the usable website instead of
+blocking access. Leaving the intro releases the video resource. Hidden tabs
+pause playback and can be resumed explicitly.
 
-Loading is `src/lib/landing-assets.ts`'s `useOptionalTexture()` — it never
-throws or suspends; a 404 just resolves to `null` so the caller renders its
-fallback. This scoped-to-the-landing symbol is deliberately separate from the
-app's actual Elyra quill logo/favicon (`BrandLogo`, `app.json`) — untouched.
+The whole landscape movie remains visible on portrait screens instead of
+cropping out the character or book. The final page can scroll on short screens.
+No reference images are shown as floating cards.
 
-## Dev helpers (URL params, dev console)
+## Verification
 
-- `?intro=force` — always play the cinematic (ignores the "seen" flag)
-- `?intro=calm` — always show the calm page
-- `?tier=high|mid|low` — force a device tier (preview the mobile version on desktop)
-- `window.__elyraSeek(seconds)` — jump the timeline while tuning
-- `window.__elyra.stage` — inspect live state
+Run `node --test scripts/test-video-intro.cjs`, `npx tsc --noEmit` and
+`npm run build:web`. The state tests cover first visits, returning visitors,
+accessibility overrides, late events after skip, replay and progress bounds.
 
-## Swap in real 3D models later
+On a running local server:
+- `/?intro=force`: preview playback even after watching (still respects reduced
+  motion and data saving).
+- `/?intro=calm`: preview the final static landing.
 
-`StoryBook3D` and `StoryCharacter` are procedural but structured for a GLTF drop-in
-— load with `useGLTF(url)` / `useAnimations`, wire the same `stage` drivers
-(`book.open`, `book.glow`, `character.appear`, `character.focus`) to the model's
-bones / materials, and render it in place of the primitive group.
+Browser checks still required: desktop/portrait/short-screen framing, actual
+autoplay and blocked autoplay, pause/resume, skip before loading, complete
+playback, replay, keyboard focus, missing media, and navigation to auth/explore.
+Frame extraction verifies supplied imagery, not the rendered website behavior.
 
-## Audio
-
-`ui/ambient-audio.tsx` is a stub — the toggle remembers the viewer's choice but
-plays nothing. Add an ambient loop to `assets/` and wire it where the comment
-says. Never autoplay.
+Production uses `.github/workflows/deploy.yml`: a push to `master` builds and
+deploys `dist` to the Cloudflare Pages project `bluey`, production branch `main`.
+The Netlify configuration is legacy. `prepare-landing-media.mjs` excludes only
+the oversized source movie from `dist`; it preserves the original in `public`.
+The service worker leaves video and byte-range requests to the browser.

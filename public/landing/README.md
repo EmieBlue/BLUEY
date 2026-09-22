@@ -1,19 +1,54 @@
-# Cinematic landing — reference art drop zone
+# Cinematic landing assets
 
-Drop image files here with these exact names to upgrade the cinematic landing's
-procedural visuals to your reference art. **Everything is optional** — a
-missing file just means that piece stays procedural. No rebuild needed: these
-are plain static files, so a refresh picks up a newly-added one.
+This folder holds plain static files served at `/landing/...`.
 
-| File | Becomes | Size / format |
-|---|---|---|
-| `book-cover.jpg` | The storybook's front cover art | ~1200×1600, jpg/webp, < 400KB |
-| `symbol.png` | The recurring glowing emblem (book, portals, loading glyph) | square, **transparent PNG**, ~512×512, < 120KB |
-| `character.png` | The story explorer, as a soft-lit cutout | portrait, **transparent/soft-edge PNG** ideally, < 600KB |
-| `world-castle.jpg` | World-morph stage 1 of 4 | wide (≥16:9), jpg/webp, < 500KB |
-| `world-forest.jpg` | World-morph stage 2 of 4 | wide, < 500KB |
-| `world-comic.jpg` | World-morph stage 3 of 4 | wide, < 500KB |
-| `world-video.jpg` | World-morph stage 4 of 4 | wide, < 500KB |
+## Active video intro
 
-See `src/components/landing/README.md` for how these are wired in
-(`src/lib/landing-assets.ts`).
+The current website uses `blueyclub-intro-web.mp4`, an optimized 720p H.264
+copy of the user's `BlueyClub_intro.mp4`. Preserve the original. The video
+has no audio track.
+The web build excludes the original from the deployment output to respect
+Cloudflare Pages' per-file size limit; the local source file is not removed.
+
+`blueyclub-intro-opening.jpg` and `blueyclub-intro-poster.jpg` are extracted
+opening and ending frames for loading and the final landing respectively.
+The older images below remain art references; they are not a gallery.
+
+## Inactive 3D character architecture
+
+Only if returning to a real-time 3D approach, put the rigged explorer here:
+
+```
+public/landing/character/character.glb
+```
+
+Recommended optional animation files for the next cinematic passes:
+
+```
+public/landing/character/idle.glb
+public/landing/character/walk.glb
+public/landing/character/reach.glb
+public/landing/character/touch.glb
+```
+
+The character should be a proper humanoid GLB/GLTF, ideally Mixamo-compatible,
+with the visual direction from the reference art: young woman, long hair, dark
+flowing coat, boots, elegant fantasy/adventure styling.
+
+## Reference art
+
+These image/video files can still live here as art direction for later world
+passes, but the new cinematic should not display them as floating gallery cards:
+
+| File | Purpose |
+|---|---|
+| `book-cover.jpg` | Storybook visual reference |
+| `character.png` | Explorer appearance reference; full scene, not a rigged model |
+| `symbol.png` | Golden storytelling symbol reference |
+| `world-castle.jpg` | Fantasy world reference |
+| `world-forest.jpg` | Magical forest reference |
+| `world-comic.jpg` | Comic world reference |
+| `world-video.jpg` | Final story universe composition: explorer, castle, portals and libraries |
+| `world-video.mp4` | Optional moving reference |
+
+See `src/components/landing/README.md` for the active implementation.
