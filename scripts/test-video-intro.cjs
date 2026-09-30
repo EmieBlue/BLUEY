@@ -70,10 +70,36 @@ test('service worker leaves video and byte-range playback outside its offline ca
   });
   for (const request of [
     new Request('https://blueyclub.com/landing/blueyclub-intro-web.mp4'),
+    new Request('https://blueyclub.com/landing/elyra-intro-v2.mp4'),
     new Request('https://blueyclub.com/media', { headers: { Range: 'bytes=0-1023' } }),
   ]) {
     let intercepted = false;
     listeners.fetch({ request, respondWith: () => { intercepted = true; } });
     assert.equal(intercepted, false);
   }
+});
+
+test('replacement media exists and uses a progressive, deployment-sized MP4', () => {
+  const configFile = path.resolve(__dirname, '../src/components/landing/video-intro-config.ts');
+  const config = new Module(configFile, module);
+  config._compile(ts.transpileModule(fs.readFileSync(configFile, 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText, configFile);
+  const { INTRO_MEDIA, INTRO_SEEN_KEY } = config.exports;
+  assert.equal(INTRO_SEEN_KEY, 'blueyclub:video-intro:v2');
+  assert.equal(INTRO_MEDIA.hasAudio, true);
+  for (const key of ['video', 'opening', 'poster']) {
+    assert.ok(fs.statSync(path.join(__dirname, '../public', INTRO_MEDIA[key])).size > 0);
+  }
+  const video = fs.readFileSync(path.join(__dirname, '../public', INTRO_MEDIA.video));
+  assert.ok(video.length < 25 * 1024 * 1024);
+  const atoms = [];
+  for (let offset = 0; offset < video.length;) {
+    const size = video.readUInt32BE(offset);
+    assert.ok(size >= 8 && offset + size <= video.length);
+    atoms.push(video.toString('ascii', offset + 4, offset + 8));
+    offset += size;
+  }
+  assert.ok(atoms.includes('moov') && atoms.includes('mdat'));
+  assert.ok(atoms.indexOf('moov') < atoms.indexOf('mdat'));
 });

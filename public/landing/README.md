@@ -4,13 +4,13 @@ This folder holds plain static files served at `/landing/...`.
 
 ## Active video intro
 
-The current website uses `blueyclub-intro-web.mp4`, an optimized 720p H.264
-copy of the user's `BlueyClub_intro.mp4`. Preserve the original. The video
-has no audio track.
-The web build excludes the original from the deployment output to respect
+The current website uses `elyra-intro-v2.mp4`, an optimized 720p H.264
+copy of the user's `Elyra Web Intro.mp4`, with stereo AAC audio. Preserve
+the original. Playback starts muted, with a sound toggle available.
+The web build excludes both original intro movies from the deployment output to respect
 Cloudflare Pages' per-file size limit; the local source file is not removed.
 
-`blueyclub-intro-opening.jpg` and `blueyclub-intro-poster.jpg` are extracted
+`elyra-intro-v2-opening.jpg` and `elyra-intro-v2-poster.jpg` are extracted
 opening and ending frames for loading and the final landing respectively.
 The older images below remain art references; they are not a gallery.
 

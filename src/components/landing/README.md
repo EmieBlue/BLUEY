@@ -22,16 +22,17 @@ Signed-in home, native screens, authentication and backend code are unchanged.
 
 ## Media
 
-- `public/landing/BlueyClub_intro.mp4`: supplied original, preserved unchanged.
-- `public/landing/blueyclub-intro-web.mp4`: H.264 1280x720 web copy, about 11 MB,
+- `public/landing/Elyra Web Intro.mp4`: supplied replacement, preserved unchanged.
+- `public/landing/elyra-intro-v2.mp4`: H.264 1280x720 web copy, about 15 MB,
   with the MP4 metadata before the media data for progressive playback.
-- `public/landing/blueyclub-intro-opening.jpg`: opening-symbol loading poster.
-- `public/landing/blueyclub-intro-poster.jpg`: final universe frame, used after
+- `public/landing/elyra-intro-v2-opening.jpg`: opening-symbol loading poster.
+- `public/landing/elyra-intro-v2-poster.jpg`: final universe frame, used after
   completion, skipping, reduced motion, data saving, or playback failure.
 
-The supplied movie has no audio track. `INTRO_MEDIA.hasAudio` is false so the
-page does not show a nonfunctional sound control. Enable it only if a future
-replacement actually contains audio. Playback starts muted.
+The replacement contains stereo AAC audio. `INTRO_MEDIA.hasAudio` is true,
+so the sound control is available. Playback starts muted. Versioned media URLs
+avoid stale cached imagery, and the v2 visit key lets returning signed-out
+visitors see the replacement once, subject to their accessibility preferences.
 
 ## Behavior
 
@@ -68,6 +69,6 @@ Frame extraction verifies supplied imagery, not the rendered website behavior.
 
 Production uses `.github/workflows/deploy.yml`: a push to `master` builds and
 deploys `dist` to the Cloudflare Pages project `bluey`, production branch `main`.
-The Netlify configuration is legacy. `prepare-landing-media.mjs` excludes only
-the oversized source movie from `dist`; it preserves the original in `public`.
+The Netlify configuration is legacy. `prepare-landing-media.mjs` excludes
+both original intro movies from `dist`; it preserves the originals in `public`.
 The service worker leaves video and byte-range requests to the browser.

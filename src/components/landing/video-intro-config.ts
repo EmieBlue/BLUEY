@@ -1,10 +1,10 @@
-export const INTRO_SEEN_KEY = 'blueyclub:video-intro:v1';
+export const INTRO_SEEN_KEY = 'blueyclub:video-intro:v2';
 
 export const INTRO_MEDIA = {
-  video: '/landing/blueyclub-intro-web.mp4',
-  opening: '/landing/blueyclub-intro-opening.jpg',
-  poster: '/landing/blueyclub-intro-poster.jpg',
-  hasAudio: false,
+  video: '/landing/elyra-intro-v2.mp4',
+  opening: '/landing/elyra-intro-v2-opening.jpg',
+  poster: '/landing/elyra-intro-v2-poster.jpg',
+  hasAudio: true,
 };
 
 export const INTRO_LOAD_TIMEOUT_MS = 15000;
