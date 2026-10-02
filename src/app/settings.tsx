@@ -5,10 +5,11 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectionHeader } from '@/components/section-header';
+import { ThemeSwitch } from '@/components/theme/theme-switch';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { APP_NAME } from '@/config/app';
-import { MaxContentWidth, Spacing, THEMES } from '@/constants/theme';
+import { Colors, MaxContentWidth, Spacing, THEMES } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useThemeMode } from '@/context/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,6 +20,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { themeKey, setThemeKey } = useThemeMode();
   const { user, configured, signOut } = useAuth();
+  const [themeAnimating, setThemeAnimating] = useState(false);
 
   const displayName =
     (user?.user_metadata?.display_name as string | undefined) || user?.email || '';
@@ -40,7 +42,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView nativeID="elyra-settings" style={styles.container}>
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.headerBar}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
@@ -53,19 +55,30 @@ export default function SettingsScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Appearance */}
           <View style={styles.section}>
-            <SectionHeader title="Appearance" subtitle="Pick a theme" />
-            <View style={styles.themeRow}>
+            <SectionHeader title="Appearance" />
+            <ThemeSwitch onAnimatingChange={setThemeAnimating} />
+            <View style={styles.themeRow} testID="theme-palettes">
               {THEMES.map((t) => (
                 <Pressable
                   key={t.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={t.label}
+                  accessibilityState={{ selected: themeKey === t.key, disabled: themeAnimating }}
+                  aria-pressed={themeKey === t.key}
+                  aria-disabled={themeAnimating}
+                  disabled={themeAnimating}
                   onPress={() => setThemeKey(t.key)}
                   style={[
                     styles.themeChip,
-                    { backgroundColor: themeKey === t.key ? theme.accent : theme.backgroundElement },
+                    { borderColor: themeKey === t.key ? theme.accent : theme.backgroundSelected },
                   ]}>
+                  <View style={[styles.swatch, { backgroundColor: t.key === 'system' ? Colors.light.background : Colors[t.key].background,
+                    borderColor: t.key === 'system' ? Colors.light.accent : Colors[t.key].accent }]}>
+                    {themeKey === t.key ? <Ionicons name="checkmark" size={14} color={theme.accent} /> : null}
+                  </View>
                   <ThemedText
                     type="smallBold"
-                    style={{ color: themeKey === t.key ? theme.accentOn : theme.text }}>
+                    style={{ color: theme.text }}>
                     {t.label}
                   </ThemedText>
                 </Pressable>
@@ -178,7 +191,8 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.three, gap: Spacing.four, paddingBottom: Spacing.six },
   section: { gap: Spacing.two },
   themeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  themeChip: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, borderRadius: 999 },
+  themeChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 6, borderWidth: 1 },
+  swatch: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
