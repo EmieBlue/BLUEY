@@ -271,8 +271,8 @@ async function openStoryFromExplore(page) {
     const chapterRow = slowPage.getByText('Part 1', { exact: true }).locator('../..');
     await chapterRow.locator('[tabindex]').last().click();
     await waitPath(slowPage, '/add-chapter');
-    await slowPage.getByText(/Couldn.t load this chapter/).waitFor();
-    await slowPage.getByText('Loading\u2026', { exact: true }).waitFor();
+    await slowPage.getByText('Could not load this chapter', { exact: true }).waitFor();
+    assert.equal(await slowPage.getByText('Save changes', { exact: true }).count(), 0);
     await slowPage.screenshot({ path: path.join(output, 'failed-chapter-load-mobile.png') });
     assert.equal(await back(slowPage).isEnabled(), true);
     await back(slowPage).click();

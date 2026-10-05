@@ -14,6 +14,7 @@ import { WriteFab } from '@/components/write-fab';
 import { APP_TAGLINE } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { LoadingView } from '@/components/loading-view';
+import { LoadingError } from '@/components/loading-error';
 import { useAppState } from '@/context/app-state';
 import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
@@ -34,14 +35,17 @@ function Shelf({ stories }: { stories: Story[] }) {
 
 export default function HomeScreen() {
   const { progress } = useAppState();
-  const { user } = useAuth();
-  const { stories, loading, getStoryById } = useStoriesData();
+  const { user, initializing } = useAuth();
+  const { stories, loading, error, refresh, getStoryById } = useStoriesData();
+
+  if (initializing) return <LoadingView />;
 
   // Signed-out visitors on the website get the cinematic "enter a universe of
   // stories" landing instead of the app home. Native keeps the browsable home.
   if (!user && Platform.OS === 'web') return <CinematicLanding />;
 
   if (loading) return <LoadingView />;
+  if (error) return <LoadingError message={error} onRetry={refresh} />;
 
   // Show every story the client is allowed to load. Row-Level Security already
   // gates this: a signed-out reader only receives *published* stories, while the

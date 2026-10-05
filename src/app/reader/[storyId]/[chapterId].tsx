@@ -20,6 +20,7 @@ import { BackButton } from '@/components/back-button';
 import { WalkingArrow } from '@/components/walking-arrow';
 import { CommentsSection } from '@/components/comments-section';
 import { LoadingView } from '@/components/loading-view';
+import { LoadingError } from '@/components/loading-error';
 import { NaturalImage } from '@/components/natural-image';
 import { StoryCover } from '@/components/story-cover';
 import { ThemedText } from '@/components/themed-text';
@@ -62,9 +63,9 @@ export default function ReaderScreen() {
   const theme = useTheme();
   const router = useRouter();
   const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/explore');
-  const { hasPurchased, setProgress } = useAppState();
+  const { hasPurchased, setProgress, hydrated, error: accountError, refresh: refreshAccount } = useAppState();
   const { user, initializing } = useAuth();
-  const { loading, getChapter, getAdjacentChapter } = useStoriesData();
+  const { loading, error: catalogueError, source, refresh, getChapter, getAdjacentChapter } = useStoriesData();
 
   const [rate, setRate] = useState(1);
   const [autoAdvance, setAutoAdvance] = useState(autoadvance === '1');
@@ -76,11 +77,18 @@ export default function ReaderScreen() {
   const [barW, setBarW] = useState(0);
   // Chapter text is fetched separately, through a purchase-gated RPC — it is NOT
   // in the loaded story list (premium paragraphs are column-locked in the DB).
-  const [content, setContent] = useState<string[] | null>(null);
+  const [loadedContent, setContent] = useState<string[] | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
+  const [contentAttempt, setContentAttempt] = useState(0);
+  const [loadedFor, setLoadedFor] = useState('');
+  const contentKey = `${user?.id ?? ''}:${storyId}:${chapterId}`;
+  const content = loadedFor === contentKey ? loadedContent : null;
   // Comic books: page image URLs (signed), fetched instead of text.
-  const [comicPages, setComicPages] = useState<string[] | null>(null);
+  const [loadedPages, setComicPages] = useState<string[] | null>(null);
+  const comicPages = loadedFor === contentKey ? loadedPages : null;
   const autoStartedRef = useRef<string | null>(null);
+  const narrationRequest = useRef(0);
   const pendingSeekRef = useRef<number | null>(null); // resume position to seek to once loaded
   const lastSaveRef = useRef(0);
 
@@ -97,15 +105,18 @@ export default function ReaderScreen() {
   const locked = result ? isChapterGated(result.story, result.chapter) && !hasAccess : false;
   const isComic = result?.story.kind === 'comic';
 
-  // Remember where the reader got to (only once we know it's readable).
+  // A failed request must not advance the reader's saved progress.
+  const readable = !locked && !contentError && !contentLoading && !!(content?.length || comicPages?.length);
   useEffect(() => {
-    if (result && !locked) {
+    if (user && readable) {
       setProgress(storyId, chapterId);
     }
-  }, [result, locked, storyId, chapterId, setProgress]);
+  }, [readable, user?.id, storyId, chapterId, setProgress]);
 
   // New chapter → forget the old audio and stop playing.
   useEffect(() => {
+    narrationRequest.current++;
+    autoStartedRef.current = null;
     setAudioReady(false);
     setAudioError(null);
     setPreparing(false);
@@ -114,53 +125,77 @@ export default function ReaderScreen() {
     } catch {
       /* player may not be ready */
     }
+    return () => { narrationRequest.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterId]);
+  }, [chapterId, user?.id]);
 
   // Fetch the chapter's text through the purchase-gated `get_chapter_content`
   // RPC. The list query never carries premium paragraphs, so the reader asks the
   // server for the text only once the chapter is actually readable (free / owned
   // / purchased). A locked chapter never fetches — the paywall shows instead.
   useEffect(() => {
-    if (!result || locked || !user) {
+    if (!result || locked || !user || loading || catalogueError || !hydrated || accountError) {
       setContent(null);
       setComicPages(null);
+      setContentError(null);
+      setContentLoading(false);
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    setLoadedFor(contentKey);
     setContentLoading(true);
+    setContentError(null);
     setContent(null);
     setComicPages(null);
     (async () => {
-      // Comic → fetch signed page-image URLs (gated the same way as text).
-      if (isComic) {
-        const res = await fetchComicPages(storyId, chapterId);
-        if (cancelled) return;
-        setComicPages(res.pages);
-        setContentLoading(false);
-        return;
-      }
-      if (!supabase) {
-        // Demo / no-Supabase mode: fall back to any locally-bundled paragraphs.
-        if (!cancelled) {
-          setContent(result.chapter.paragraphs ?? []);
-          setContentLoading(false);
+      try {
+        // Comic → fetch signed page-image URLs (gated the same way as text).
+        if (isComic) {
+          const res = await fetchComicPages(storyId, chapterId, controller.signal);
+          if (cancelled) return;
+          if (res.failed) throw new Error('Could not fetch comic pages');
+          if (res.locked) {
+            setContentError('Your access to this chapter may have changed. Try again to refresh the story.');
+            return;
+          }
+          setComicPages(res.pages);
+          return;
         }
-        return;
+        if (source === 'local' || !supabase) {
+          setContent(result.chapter.paragraphs ?? []);
+          return;
+        }
+        const { data, error } = await supabase.rpc('get_chapter_content', {
+          p_story_id: storyId,
+          p_chapter_id: chapterId,
+        }).abortSignal(controller.signal);
+        if (cancelled) return;
+        if (error) throw error;
+        if (data === null) {
+          setContentError('Your access to this chapter may have changed. Try again to refresh the story.');
+        } else if (Array.isArray(data) && data.every(item => typeof item === 'string')) {
+          setContent(data);
+        } else {
+          throw new Error('Invalid chapter response');
+        }
+      } catch {
+        if (!cancelled) setContentError('We could not load this chapter. Check your connection and try again.');
+      } finally {
+        clearTimeout(timeout);
+        if (!cancelled) setContentLoading(false);
       }
-      const { data, error } = await supabase.rpc('get_chapter_content', {
-        p_story_id: storyId,
-        p_chapter_id: chapterId,
-      });
-      if (cancelled) return;
-      setContent(error ? [] : ((data as string[] | null) ?? []));
-      setContentLoading(false);
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
+      controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.chapter.id, storyId, chapterId, locked, user?.id, isComic]);
+  }, [result?.chapter, storyId, chapterId, locked, user?.id, isComic, loading, catalogueError, hydrated, accountError, contentAttempt, source]);
+
+  const retryContent = () => { setContentAttempt(attempt => attempt + 1); void refresh(); };
 
   const handleEnd = () => {
     if (!result) return;
@@ -218,7 +253,7 @@ export default function ReaderScreen() {
   }, [status.currentTime, playing, chapterId]);
 
   const prepareAndPlay = async () => {
-    if (!result) return;
+    if (!result || !readable || preparing) return;
     if (audioReady) {
       player.play();
       return;
@@ -227,31 +262,39 @@ export default function ReaderScreen() {
     if (!paras.length) return;
     setAudioError(null);
     setPreparing(true);
-    const res = await getChapterAudioUrl({
-      chapterId,
-      text: paras.join('\n\n'),
-      genre: result.story.genres?.[0],
-    });
-    setPreparing(false);
-    if (res.error || !res.url) {
-      setAudioError(res.error || 'Could not prepare narration.');
-      return;
-    }
-    let savedPos = 0;
+    const request = ++narrationRequest.current;
     try {
-      const raw = await AsyncStorage.getItem(posKey(chapterId));
-      if (raw) savedPos = parseFloat(raw) || 0;
+      const res = await getChapterAudioUrl({
+        chapterId,
+        text: paras.join('\n\n'),
+        genre: result.story.genres?.[0],
+      });
+      if (request !== narrationRequest.current) return;
+      if (res.error || !res.url) {
+        setAudioError(res.error || 'Could not prepare narration.');
+        return;
+      }
+      let savedPos = 0;
+      try {
+        const raw = await AsyncStorage.getItem(posKey(chapterId));
+        if (raw) savedPos = parseFloat(raw) || 0;
+      } catch {
+        /* ignore */
+      }
+      if (request !== narrationRequest.current) return;
+      try {
+        player.replace(res.url);
+        player.playbackRate = rate;
+        pendingSeekRef.current = savedPos;
+        player.play();
+        setAudioReady(true);
+      } catch {
+        setAudioError('Could not play the narration.');
+      }
     } catch {
-      /* ignore */
-    }
-    try {
-      player.replace(res.url);
-      player.playbackRate = rate;
-      pendingSeekRef.current = savedPos; // seeked once the track loads
-      player.play();
-      setAudioReady(true);
-    } catch {
-      setAudioError('Could not play the narration.');
+      if (request === narrationRequest.current) setAudioError('Could not prepare narration. Please try again.');
+    } finally {
+      if (request === narrationRequest.current) setPreparing(false);
     }
   };
 
@@ -277,12 +320,12 @@ export default function ReaderScreen() {
 
   // Auto-start reading when arriving via auto-advance (autoplay=1).
   useEffect(() => {
-    if (autoplay === '1' && result && !locked && autoStartedRef.current !== chapterId) {
+    if (autoplay === '1' && result && readable && autoStartedRef.current !== chapterId) {
       autoStartedRef.current = chapterId;
       prepareAndPlay();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chapterId, autoplay, loading, locked]);
+  }, [chapterId, autoplay, readable]);
 
   const toggleListen = () => {
     if (playing) {
@@ -304,7 +347,9 @@ export default function ReaderScreen() {
     }
   };
 
-  if (loading || initializing) return <LoadingView onBack={goBack} />;
+  if (loading || initializing || !hydrated) return <LoadingView onBack={goBack} />;
+  if (catalogueError) return <LoadingError message={catalogueError} onRetry={refresh} onBack={goBack} />;
+  if (accountError) return <LoadingError title="Could not load your account" message={accountError} onRetry={refreshAccount} onBack={goBack} />;
 
   if (!result) {
     return (
@@ -371,9 +416,10 @@ export default function ReaderScreen() {
           chapterTitle={chapter.title}
         />
       ) : isComic ? (
+        contentError ? <LoadingError title="Could not load this chapter" message={contentError} onRetry={retryContent} /> :
         <ComicPager
           pages={comicPages ?? []}
-          loading={contentLoading}
+          loading={contentLoading || loadedFor !== contentKey}
           onNext={next ? () => goToChapter(next) : undefined}
         />
       ) : (
@@ -405,7 +451,7 @@ export default function ReaderScreen() {
             </View>
             <View style={[styles.divider, { backgroundColor: theme.backgroundSelected }]} />
 
-            {!isComic && (
+            {readable && (
             <View style={[styles.audioPanel, { borderColor: theme.backgroundElement }]}>
               <View style={styles.audioTopRow}>
                 <Pressable
@@ -535,8 +581,10 @@ export default function ReaderScreen() {
             ) : null}
             {chapter.videoUrl ? <YouTubePlayer url={chapter.videoUrl} /> : null}
 
-            {contentLoading ? (
+            {contentLoading || loadedFor !== contentKey ? (
               <ActivityIndicator style={{ marginVertical: Spacing.six }} color={theme.accent} />
+            ) : contentError ? (
+              <LoadingError compact title="Could not load this chapter" message={contentError} onRetry={retryContent} />
             ) : content && content.length === 0 ? (
               <ThemedText themeColor="textSecondary" style={styles.paragraph}>
                 This chapter isn’t available to read yet.

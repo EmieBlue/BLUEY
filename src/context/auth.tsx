@@ -51,15 +51,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let active = true;
+    let authChanged = false;
 
     supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
+      if (!active || authChanged) return;
       setSession(data.session);
+      setInitializing(false);
+    }).catch(() => {
+      if (!active || authChanged) return;
+      setSession(null);
       setInitializing(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!active) return;
+      authChanged = true;
       setSession(newSession);
+      setInitializing(false);
     });
 
     return () => {

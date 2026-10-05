@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StoryCover } from '@/components/story-cover';
 import { BackButton } from '@/components/back-button';
+import { LoadingError } from '@/components/loading-error';
+import { LoadingView } from '@/components/loading-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -36,6 +38,21 @@ const AUDIENCES = ['Everyone', 'Teen', 'Adult'];
 const COVER_COLORS = ['#B5651D', '#2F6F4E', '#2B4C7E', '#7A3B69', '#A23E54', '#3F5E5A'];
 
 export default function WriteScreen() {
+  const { storyId } = useLocalSearchParams<{ storyId?: string }>();
+  const { loading, error, refresh, getStoryById } = useStoriesData();
+  const { initializing } = useAuth();
+  const { hydrated, error: accountError, refresh: refreshAccount } = useAppState();
+  const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/library');
+  if (loading || initializing || !hydrated) return <LoadingView onBack={goBack} />;
+  if (error) return <LoadingError message={error} onRetry={refresh} onBack={goBack} />;
+  if (accountError) return <LoadingError title="Could not load your account" message={accountError} onRetry={refreshAccount} onBack={goBack} />;
+  if (storyId && !getStoryById(storyId)) return (
+    <ThemedView style={styles.centered}><ThemedText>Story not found.</ThemedText><BackButton onPress={goBack} /></ThemedView>
+  );
+  return <WriteForm key={storyId ?? 'new'} />;
+}
+
+function WriteForm() {
   const theme = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();

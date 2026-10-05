@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -53,40 +54,62 @@ export function StoriesProvider({ children }: { children: ReactNode }) {
   // Re-fetch when the signed-in user changes: draft stories are only readable by
   // their owner (RLS), so the list must reload once a session is established or
   // the author's own drafts never appear.
-  const { user } = useAuth();
+  const { user, initializing } = useAuth();
+  const userId = user?.id ?? null;
   // With no Supabase, use the local sample data immediately (demo mode).
-  const [stories, setStories] = useState<Story[]>(isSupabaseConfigured ? [] : STORIES);
-  const [loading, setLoading] = useState<boolean>(isSupabaseConfigured);
-  const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<Source>(isSupabaseConfigured ? 'supabase' : 'local');
+  const [state, setState] = useState({
+    userId,
+    stories: isSupabaseConfigured ? [] as Story[] : STORIES,
+    loading: isSupabaseConfigured,
+    error: null as string | null,
+  });
+  const pending = useRef<AbortController | null>(null);
+  const requestId = useRef(0);
+  const source: Source = isSupabaseConfigured ? 'supabase' : 'local';
+  // Never expose the previous account's drafts while a new session is loading.
+  const sameUser = state.userId === userId;
+  const stories = sameUser ? state.stories : [];
+  const loading = isSupabaseConfigured && (initializing || !sameUser || state.loading);
+  const error = sameUser ? state.error : null;
 
   const load = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) return; // local fallback already in place
-    setLoading(true);
+    if (!isSupabaseConfigured || !supabase || initializing) return;
+    pending.current?.abort();
+    const controller = new AbortController();
+    pending.current = controller;
+    const id = ++requestId.current;
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    setState(previous => ({
+      userId, stories: previous.userId === userId ? previous.stories : [], loading: true, error: null,
+    }));
     // NB: chapter `paragraphs` is intentionally NOT selected — premium chapter
     // text is column-locked in the DB and only fetched (per chapter, gated by
     // purchase) via the `get_chapter_content` RPC in the reader.
-    const { data, error: queryError } = await supabase
-      .from('stories')
-      .select(
-        '*, author:authors(*), chapters(id,order,title,reading_minutes,is_premium,image_url,video_url,page_count)',
-      );
-    if (queryError || !data || data.length === 0) {
-      // Never show a blank app: fall back to the bundled sample stories.
-      setError(queryError ? queryError.message : null);
-      setStories(STORIES);
-      setSource('local');
-    } else {
-      setError(null);
-      setStories(mapStories(data as unknown as DbStory[]));
-      setSource('supabase');
+    try {
+      const { data, error: queryError } = await supabase
+        .from('stories')
+        .select(
+          '*, author:authors(*), chapters(id,order,title,reading_minutes,is_premium,image_url,video_url,page_count)',
+        ).abortSignal(controller.signal);
+      if (id !== requestId.current) return;
+      if (queryError || !Array.isArray(data)) throw queryError ?? new Error('Invalid catalogue response');
+      setState({ userId, stories: mapStories(data as unknown as DbStory[]), loading: false, error: null });
+    } catch {
+      if (id !== requestId.current) return;
+      setState(previous => ({
+        ...previous, loading: false,
+        error: 'We could not load your stories. Check your connection and try again.',
+      }));
+    } finally {
+      clearTimeout(timeout);
+      if (id === requestId.current) pending.current = null;
     }
-    setLoading(false);
-  }, []);
+  }, [userId, initializing]);
 
   useEffect(() => {
     load();
-  }, [load, user?.id]);
+    return () => { requestId.current++; pending.current?.abort(); };
+  }, [load]);
 
   const value = useMemo<StoriesData>(
     () => ({

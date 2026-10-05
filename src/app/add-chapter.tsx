@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, StyleSheet } from 'react-native';
 
 import { BackButton } from '@/components/back-button';
+import { LoadingError } from '@/components/loading-error';
+import { LoadingView } from '@/components/loading-view';
 import { ChapterCanvas } from '@/components/chapter-canvas';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,6 +15,15 @@ import { supabase } from '@/lib/supabase';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 
 export default function AddChapterScreen() {
+  const { storyId, chapterId } = useLocalSearchParams<{ storyId: string; chapterId?: string }>();
+  const { loading, error, refresh } = useStoriesData();
+  const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/library');
+  if (loading) return <LoadingView onBack={goBack} />;
+  if (error) return <LoadingError message={error} onRetry={refresh} onBack={goBack} />;
+  return <ChapterForm key={`${storyId}:${chapterId ?? 'new'}`} />;
+}
+
+function ChapterForm() {
   const { storyId, chapterId } = useLocalSearchParams<{ storyId: string; chapterId?: string }>();
   const router = useRouter();
   const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/library');
@@ -41,9 +52,9 @@ export default function AddChapterScreen() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefilledRef = useRef(false);
-  // A comic being edited must load its existing pages before Save is allowed —
-  // otherwise a title-only save would overwrite the pages with an empty list.
-  const [pagesLoaded, setPagesLoaded] = useState<boolean>(() => !(comic && isEditing));
+  // Load existing content before mounting editable fields or allowing Save.
+  const [pagesLoaded, setPagesLoaded] = useState(!isEditing);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   // Chapter content isn't in the loaded story list (paragraphs are column-locked).
   // When editing, pull it via the gated `get_chapter_content` RPC (owner allowed):
@@ -51,37 +62,40 @@ export default function AddChapterScreen() {
   useEffect(() => {
     if (!isEditing || !chapterId || !supabase || prefilledRef.current) return;
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     (async () => {
-      const { data } = await supabase!.rpc('get_chapter_content', {
-        p_story_id: storyId,
-        p_chapter_id: chapterId,
-      });
-      if (cancelled) return;
-      prefilledRef.current = true;
-      const items = (data as string[] | null) ?? [];
-      if (comic) {
-        const signed = await fetchComicPages(storyId, chapterId);
+      try {
+        const { data, error: loadError } = await supabase!.rpc('get_chapter_content', {
+          p_story_id: storyId,
+          p_chapter_id: chapterId,
+        }).abortSignal(controller.signal);
         if (cancelled) return;
-        if (items.length > 0) {
-          setInitialPages(items.map((p, i) => ({ path: p, url: signed.pages[i] ?? p })));
+        if (loadError || !Array.isArray(data) || !data.every(item => typeof item === 'string')) throw new Error('Chapter load failed');
+        const items = data as string[];
+        if (comic) {
+          const signed = items.length ? await fetchComicPages(storyId, chapterId, controller.signal) : { pages: [], failed: false, locked: false };
+          if (cancelled) return;
+          if (signed.failed || signed.locked || signed.pages.length !== items.length || (hadPages && !items.length)) throw new Error('Comic pages failed to load');
+          setInitialPages(items.map((p, i) => ({ path: p, url: signed.pages[i] })));
           setChapter((c) => ({ ...c, pages: items }));
-          setPagesLoaded(true);
-        } else if (hadPages) {
-          // This chapter should have pages but they didn't load — keep Save
-          // disabled so a stray save can't wipe them.
-          setError('Couldn’t load this chapter’s pages. Please refresh and try again.');
         } else {
-          setPagesLoaded(true); // genuinely a 0-page chapter
+          setChapter((c) => ({ ...c, body: items.join('\n\n') }));
         }
-      } else {
-        setChapter((c) => ({ ...c, body: items.join('\n\n') }));
         setPagesLoaded(true);
+        prefilledRef.current = true;
+      } catch {
+        if (!cancelled) setError('Could not load this chapter. Your existing content has not been changed.');
+      } finally {
+        clearTimeout(timeout);
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
+      controller.abort();
     };
-  }, [isEditing, chapterId, storyId, comic, hadPages]);
+  }, [isEditing, chapterId, storyId, comic, hadPages, loadAttempt]);
 
   const goToStory = () => router.dismissTo({ pathname: '/story/[id]', params: { id: storyId } });
 
@@ -101,6 +115,7 @@ export default function AddChapterScreen() {
   };
 
   const onDone = async () => {
+    if (busy || (isEditing && !pagesLoaded)) return;
     const hasPages = !!(chapter.pages && chapter.pages.length);
 
     // Never overwrite a comic chapter's real pages before they've loaded.
@@ -120,17 +135,22 @@ export default function AddChapterScreen() {
     }
 
     setBusy(true);
-    const res =
-      isEditing && chapterId
-        ? await updateChapter(storyId, chapterId, chapter)
-        : await addChapterToStory(storyId, chapter);
-    setBusy(false);
-    if (res.error) {
-      setError(res.error);
-      return;
+    try {
+      const res =
+        isEditing && chapterId
+          ? await updateChapter(storyId, chapterId, chapter)
+          : await addChapterToStory(storyId, chapter);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      await refresh();
+      goToStory();
+    } catch {
+      setError('Could not save this chapter. Please try again.');
+    } finally {
+      setBusy(false);
     }
-    await refresh();
-    goToStory();
   };
 
   if (!story) {
@@ -140,6 +160,17 @@ export default function AddChapterScreen() {
         <BackButton onPress={goBack} />
       </ThemedView>
     );
+  }
+
+  if (chapterId && !existingChapter) return (
+    <ThemedView style={styles.c}><ThemedText>Chapter not found.</ThemedText><BackButton onPress={goBack} /></ThemedView>
+  );
+
+  if (isEditing && !pagesLoaded) {
+    return error
+      ? <LoadingError title="Could not load this chapter" message={error} onBack={onBack}
+          onRetry={() => { setError(null); setLoadAttempt(attempt => attempt + 1); }} />
+      : <LoadingView onBack={onBack} />;
   }
 
   return (

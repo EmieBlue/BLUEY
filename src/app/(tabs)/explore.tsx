@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LoadingView } from '@/components/loading-view';
+import { LoadingError } from '@/components/loading-error';
 import { GridCard } from '@/components/story-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -23,7 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 export default function ExploreScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const { loading, searchStories } = useStoriesData();
+  const { loading, error, refresh, searchStories } = useStoriesData();
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState<Genre | null>(null);
   const [format, setFormat] = useState<'all' | 'novel' | 'comic' | 'film'>('all');
@@ -36,6 +37,7 @@ export default function ExploreScreen() {
   }, [query, genre, format, searchStories]);
 
   if (loading) return <LoadingView />;
+  if (error) return <LoadingError message={error} onRetry={refresh} />;
 
   // Responsive grid: 2 columns on phones, 3-4 on a wider website layout.
   const contentWidth = Math.min(width, MaxContentWidth) - Spacing.three * 2;

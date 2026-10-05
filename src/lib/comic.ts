@@ -15,10 +15,10 @@ function endpoint(): string {
   return `${base}/api/comic-pages`;
 }
 
-async function accessToken(): Promise<string | undefined> {
-  if (!supabase) return undefined;
+async function sessionIdentity() {
+  if (!supabase) return { token: undefined, userId: 'anonymous' };
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? undefined;
+  return { token: data.session?.access_token, userId: data.session?.user.id ?? 'anonymous' };
 }
 
 // In-memory cache of a chapter's signed page URLs, so leaving and returning to
@@ -31,23 +31,25 @@ const cache = new Map<string, { pages: string[]; expiresAt: number }>();
 export async function fetchComicPages(
   storyId: string,
   chapterId: string,
+  signal?: AbortSignal,
 ): Promise<{ pages: string[]; locked: boolean; failed: boolean }> {
-  const key = `${storyId}:${chapterId}`;
-  const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) {
-    return { pages: cached.pages, locked: false, failed: false };
-  }
   try {
-    const token = await accessToken();
+    const { token, userId } = await sessionIdentity();
+    const key = `${userId}:${storyId}:${chapterId}`;
+    const cached = cache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { pages: cached.pages, locked: false, failed: false };
+    }
     const res = await fetch(endpoint(), {
       method: 'POST',
+      signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ storyId, chapterId, accessToken: token }),
     });
     if (res.status === 403) return { pages: [], locked: true, failed: false };
     const data = await res.json().catch(() => ({}) as { pages?: string[] });
-    if (!res.ok || !Array.isArray(data.pages)) return { pages: [], locked: false, failed: true };
-    cache.set(key, { pages: data.pages, expiresAt: Date.now() + CACHE_TTL_MS });
+    if (!res.ok || !Array.isArray(data.pages) || !data.pages.every((page: unknown) => typeof page === 'string')) return { pages: [], locked: false, failed: true };
+    if (data.pages.length) cache.set(key, { pages: data.pages, expiresAt: Date.now() + CACHE_TTL_MS });
     return { pages: data.pages, locked: false, failed: false };
   } catch {
     return { pages: [], locked: false, failed: true };

@@ -6,6 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { BackButton } from '@/components/back-button';
+import { LoadingError } from '@/components/loading-error';
+import { LoadingView } from '@/components/loading-view';
 import { ThemedView } from '@/components/themed-view';
 import { BOOK_PERKS, BOOK_PRICE_LABEL } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -22,7 +24,7 @@ export default function PaywallScreen() {
   const { storyId } = useLocalSearchParams<{ storyId?: string }>();
   const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/explore');
   const { purchaseBook } = useAppState();
-  const { getStoryById } = useStoriesData();
+  const { getStoryById, loading, error: catalogueError, refresh } = useStoriesData();
   const { user, configured } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function PaywallScreen() {
   const bookTitle = story?.title ?? 'this book';
 
   const onBuy = async () => {
-    if (!storyId) {
+    if (!storyId || !story) {
       setError('Something went wrong — please reopen the book.');
       return;
     }
@@ -57,6 +59,9 @@ export default function PaywallScreen() {
       setBusy(false);
     }
   };
+
+  if (loading) return <LoadingView onBack={goBack} />;
+  if (catalogueError) return <LoadingError message={catalogueError} onRetry={refresh} onBack={goBack} />;
 
   return (
     <ThemedView style={styles.container}>

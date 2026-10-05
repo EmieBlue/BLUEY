@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LoadingView } from '@/components/loading-view';
+import { LoadingError } from '@/components/loading-error';
 import { SectionHeader } from '@/components/section-header';
 import { StoryCover } from '@/components/story-cover';
 import { ThemedText } from '@/components/themed-text';
@@ -18,14 +19,16 @@ import { useTheme } from '@/hooks/use-theme';
 export default function LibraryScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { isAuthor, followingIds, progress } = useAppState();
+  const { isAuthor, followingIds, progress, hydrated, error: accountError, refresh: refreshAccount } = useAppState();
   const { user, configured, signOut } = useAuth();
-  const { loading, stories, getStoryById } = useStoriesData();
+  const { loading, error, refresh, stories, getStoryById } = useStoriesData();
 
   const displayName =
     (user?.user_metadata?.display_name as string | undefined) || user?.email || '';
 
-  if (loading) return <LoadingView />;
+  if (loading || !hydrated) return <LoadingView />;
+  if (error) return <LoadingError message={error} onRetry={refresh} />;
+  if (accountError) return <LoadingError title="Could not load your account" message={accountError} onRetry={refreshAccount} />;
 
   const myStories = user ? stories.filter((s) => s.ownerId && s.ownerId === user.id) : [];
 

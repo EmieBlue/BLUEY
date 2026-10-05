@@ -43,6 +43,8 @@ interface PersistedState {
 interface AppState extends PersistedState {
   /** False until state has loaded, so we don't flash the wrong UI. */
   hydrated: boolean;
+  error: string | null;
+  refresh: () => void;
   hasPurchased: (storyId: string) => boolean;
   purchaseBook: (storyId: string) => void;
   isFollowing: (storyId: string) => boolean;
@@ -62,22 +64,30 @@ const AppStateContext = createContext<AppState | null>(null);
 
 async function loadFromCloud(userId: string): Promise<PersistedState> {
   if (!supabase) return defaultPersisted;
-  const [profileRes, followsRes, progressRes, purchasesRes] = await Promise.all([
-    supabase.from('profiles').select('is_author').eq('id', userId).maybeSingle(),
-    supabase.from('follows').select('story_id').eq('user_id', userId),
-    supabase.from('reading_progress').select('story_id, chapter_id').eq('user_id', userId),
-    supabase.from('purchases').select('story_id').eq('user_id', userId),
-  ]);
-  const progress: ProgressMap = {};
-  for (const row of progressRes.data ?? []) {
-    progress[row.story_id] = row.chapter_id;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const [profileRes, followsRes, progressRes, purchasesRes] = await Promise.all([
+      supabase.from('profiles').select('is_author').eq('id', userId).abortSignal(controller.signal).maybeSingle(),
+      supabase.from('follows').select('story_id').eq('user_id', userId).abortSignal(controller.signal),
+      supabase.from('reading_progress').select('story_id, chapter_id').eq('user_id', userId).abortSignal(controller.signal),
+      supabase.from('purchases').select('story_id').eq('user_id', userId).abortSignal(controller.signal),
+    ]);
+    const failure = [profileRes, followsRes, progressRes, purchasesRes].find(result => result.error)?.error;
+    if (failure) throw failure;
+    const progress: ProgressMap = {};
+    for (const row of progressRes.data ?? []) {
+      progress[row.story_id] = row.chapter_id;
+    }
+    return {
+      purchasedStoryIds: (purchasesRes.data ?? []).map((r) => r.story_id),
+      isAuthor: profileRes.data?.is_author ?? false,
+      followingIds: (followsRes.data ?? []).map((r) => r.story_id),
+      progress,
+    };
+  } finally {
+    clearTimeout(timeout);
   }
-  return {
-    purchasedStoryIds: (purchasesRes.data ?? []).map((r) => r.story_id),
-    isAuthor: profileRes.data?.is_author ?? false,
-    followingIds: (followsRes.data ?? []).map((r) => r.story_id),
-    progress,
-  };
 }
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
@@ -86,18 +96,30 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const cloud = isSupabaseConfigured && Boolean(session);
 
   const [state, setState] = useState<PersistedState>(defaultPersisted);
-  const [hydrated, setHydrated] = useState(false);
+  const [loaded, setHydrated] = useState(false);
+  const [loadedIdentity, setLoadedIdentity] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const identity = cloud && userId ? userId : 'local';
+  const hydrated = !initializing && loaded && loadedIdentity === identity;
+  const visibleState = loadedIdentity === identity ? state : defaultPersisted;
+  const refresh = useCallback(() => setLoadAttempt(attempt => attempt + 1), []);
 
   // Load state whenever the mode or signed-in user changes.
   useEffect(() => {
     if (initializing) return; // wait for auth to settle first
     let active = true;
     setHydrated(false);
+    setLoadedIdentity(identity);
+    setError(null);
+    setState(defaultPersisted);
 
     if (cloud && userId) {
       loadFromCloud(userId)
         .then((data) => active && setState(data))
-        .catch(() => {})
+        .catch(() => {
+          if (active) setError('We could not load your library and purchases. Check your connection and try again.');
+        })
         .finally(() => active && setHydrated(true));
     } else {
       AsyncStorage.getItem(STORAGE_KEY)
@@ -113,13 +135,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
             setState(defaultPersisted);
           }
         })
+        .catch(() => { if (active) setState(defaultPersisted); })
         .finally(() => active && setHydrated(true));
     }
 
     return () => {
       active = false;
     };
-  }, [initializing, cloud, userId]);
+  }, [initializing, cloud, userId, identity, loadAttempt]);
 
   // After Paystack Checkout (web), we land back on `/?purchase=success&story=<id>`.
   // The webhook records the purchase server-side, but it can lag a second or two —
@@ -171,8 +194,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [state, hydrated, cloud]);
 
   const hasPurchased = useCallback(
-    (storyId: string) => state.purchasedStoryIds.includes(storyId),
-    [state.purchasedStoryIds],
+    (storyId: string) => visibleState.purchasedStoryIds.includes(storyId),
+    [visibleState.purchasedStoryIds],
   );
 
   // Demo/local mode only: unlock a book on-device. In cloud mode the purchase is
@@ -186,8 +209,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isFollowing = useCallback(
-    (storyId: string) => state.followingIds.includes(storyId),
-    [state.followingIds],
+    (storyId: string) => visibleState.followingIds.includes(storyId),
+    [visibleState.followingIds],
   );
 
   const toggleFollow = useCallback(
@@ -218,8 +241,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   );
 
   const getProgressChapterId = useCallback(
-    (storyId: string) => state.progress[storyId],
-    [state.progress],
+    (storyId: string) => visibleState.progress[storyId],
+    [visibleState.progress],
   );
 
   const setProgress = useCallback(
@@ -240,8 +263,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({
-      ...state,
+      ...visibleState,
       hydrated,
+      error: loadedIdentity === identity ? error : null,
+      refresh,
       hasPurchased,
       purchaseBook,
       isFollowing,
@@ -249,7 +274,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       getProgressChapterId,
       setProgress,
     }),
-    [state, hydrated, hasPurchased, purchaseBook, isFollowing, toggleFollow, getProgressChapterId, setProgress],
+    [visibleState, hydrated, error, loadedIdentity, identity, refresh, hasPurchased, purchaseBook, isFollowing, toggleFollow, getProgressChapterId, setProgress],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

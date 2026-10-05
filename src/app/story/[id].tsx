@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { LoadingView } from '@/components/loading-view';
+import { LoadingError } from '@/components/loading-error';
 import { BackButton } from '@/components/back-button';
 import { ReviewsSection } from '@/components/reviews-section';
 import { StoryCover } from '@/components/story-cover';
@@ -28,8 +29,8 @@ export default function StoryDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
   const goBack = useBackNavigation('/explore');
-  const { hasPurchased, isAuthor, isFollowing, toggleFollow, getProgressChapterId } = useAppState();
-  const { loading, getStoryById, refresh } = useStoriesData();
+  const { hasPurchased, isAuthor, isFollowing, toggleFollow, getProgressChapterId, hydrated, error: accountError, refresh: refreshAccount } = useAppState();
+  const { loading, error, getStoryById, refresh } = useStoriesData();
   const { user } = useAuth();
   const [ownerBusy, setOwnerBusy] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
@@ -40,7 +41,9 @@ export default function StoryDetailScreen() {
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
 
-  if (loading) return <LoadingView onBack={goBack} />;
+  if (loading || !hydrated) return <LoadingView onBack={goBack} />;
+  if (error) return <LoadingError message={error} onRetry={refresh} onBack={goBack} />;
+  if (accountError) return <LoadingError title="Could not load your account" message={accountError} onRetry={refreshAccount} onBack={goBack} />;
 
   const story = getStoryById(id);
 

@@ -2,8 +2,8 @@ import type { Chapter, Genre, Story } from './types';
 
 /**
  * Local fallback content. Supabase is the source of truth for stories (loaded by
- * the StoriesProvider); this array is only shown if the database is empty or
- * unreachable. It is intentionally EMPTY — real stories live in Supabase and are
+ * the StoriesProvider); this array is only used when Supabase is not configured.
+ * It is intentionally EMPTY — real stories live in Supabase and are
  * added through the app's Write feature — so a clean database never falls back to
  * demo data. The accessor functions below operate on whichever array is loaded.
  */
