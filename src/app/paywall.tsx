@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { BackButton } from '@/components/back-button';
 import { ThemedView } from '@/components/themed-view';
 import { BOOK_PERKS, BOOK_PRICE_LABEL } from '@/config/app';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -12,12 +13,14 @@ import { useAppState } from '@/context/app-state';
 import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 import { startCheckout } from '@/lib/checkout';
 
 export default function PaywallScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { storyId } = useLocalSearchParams<{ storyId?: string }>();
+  const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/explore');
   const { purchaseBook } = useAppState();
   const { getStoryById } = useStoriesData();
   const { user, configured } = useAuth();
@@ -35,7 +38,7 @@ export default function PaywallScreen() {
     // No Supabase/Paystack wired up (local demo) → just unlock locally.
     if (!configured) {
       purchaseBook(storyId);
-      router.back();
+      goBack();
       return;
     }
     // A purchase is tied to an account, so sign in first.
@@ -59,9 +62,7 @@ export default function PaywallScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.closeRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="close" size={28} color={theme.text} />
-          </Pressable>
+          <BackButton onPress={goBack} close />
         </View>
 
         <View style={styles.body}>

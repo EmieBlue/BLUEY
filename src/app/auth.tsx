@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo } from '@/components/brand-logo';
+import { BackButton } from '@/components/back-button';
 import { DepthBackground } from '@/components/depth-background';
 import { LoginIntro } from '@/components/login-intro';
 import { Reveal } from '@/components/reveal';
@@ -27,6 +27,7 @@ import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useStoriesData } from '@/context/stories';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 
 type Mode = 'signin' | 'signup';
 
@@ -44,7 +45,7 @@ const glassWeb =
 
 export default function AuthScreen() {
   const theme = useTheme();
-  const router = useRouter();
+  const goBack = useBackNavigation('/explore');
   const { signIn, signUp, resetPassword, configured } = useAuth();
   const { stories } = useStoriesData();
 
@@ -88,7 +89,7 @@ export default function AuthScreen() {
       setMode('signin');
       return;
     }
-    router.back();
+    goBack();
   };
 
   const onForgot = async () => {
@@ -233,9 +234,7 @@ export default function AuthScreen() {
 
       {/* Close (X) floats over everything. */}
       <SafeAreaView edges={['top']} style={styles.closeSafe} pointerEvents="box-none">
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.closeBtn}>
-          <Ionicons name="close" size={22} color="#FFFFFF" />
-        </Pressable>
+        <BackButton onPress={goBack} close accessibilityLabel="Close sign in" />
       </SafeAreaView>
 
       {/* Cinematic scan-in "starter" over everything; fades to reveal the card. */}
@@ -362,12 +361,4 @@ const styles = StyleSheet.create({
   switchLink: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 
   closeSafe: { position: 'absolute', top: 0, right: 0, padding: Spacing.three },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
 });

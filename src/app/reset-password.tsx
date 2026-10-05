@@ -117,7 +117,7 @@ export default function ResetPasswordScreen() {
                 Open the link from your password-reset email to set a new password. If it has
                 expired, request a new one from the sign-in screen.
               </ThemedText>
-              <Cta label="Back to sign in" theme={theme} onPress={() => router.replace('/auth')} />
+              <Cta label="Back to sign in" theme={theme} onPress={() => router.dismissTo('/auth')} />
             </>
           )}
         </View>

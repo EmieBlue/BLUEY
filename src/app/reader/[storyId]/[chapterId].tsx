@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ComicPager } from '@/components/comic-pager';
+import { BackButton } from '@/components/back-button';
+import { WalkingArrow } from '@/components/walking-arrow';
 import { CommentsSection } from '@/components/comments-section';
 import { LoadingView } from '@/components/loading-view';
 import { NaturalImage } from '@/components/natural-image';
@@ -31,6 +33,7 @@ import { useStoriesData } from '@/context/stories';
 import { isChapterGated } from '@/data/stories';
 import type { Chapter } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 import { fetchComicPages } from '@/lib/comic';
 import { supabase } from '@/lib/supabase';
 import { getChapterAudioUrl } from '@/lib/tts';
@@ -58,6 +61,7 @@ export default function ReaderScreen() {
   }>();
   const theme = useTheme();
   const router = useRouter();
+  const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/explore');
   const { hasPurchased, setProgress } = useAppState();
   const { user, initializing } = useAuth();
   const { loading, getChapter, getAdjacentChapter } = useStoriesData();
@@ -300,15 +304,13 @@ export default function ReaderScreen() {
     }
   };
 
-  if (loading || initializing) return <LoadingView />;
+  if (loading || initializing) return <LoadingView onBack={goBack} />;
 
   if (!result) {
     return (
       <ThemedView style={styles.centered}>
         <ThemedText>Chapter not found.</ThemedText>
-        <Pressable onPress={() => router.back()}>
-          <ThemedText type="linkPrimary">Go back</ThemedText>
-        </Pressable>
+        <BackButton onPress={goBack} />
       </ThemedView>
     );
   }
@@ -320,7 +322,7 @@ export default function ReaderScreen() {
       <SignInGate
         title={result.story.title}
         onSignIn={() => router.push('/auth')}
-        onBack={() => router.back()}
+        onBack={goBack}
       />
     );
   }
@@ -346,9 +348,7 @@ export default function ReaderScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
         <View style={styles.headerBar}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
-          </Pressable>
+          <BackButton onPress={goBack} />
           {story.chapters.length > 1 ? (
             <Pressable onPress={() => setMenuOpen(true)} style={styles.headerTitleBtn} hitSlop={8}>
               <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.headerTitleText}>
@@ -361,7 +361,7 @@ export default function ReaderScreen() {
               {story.title}
             </ThemedText>
           )}
-          <View style={{ width: 26 }} />
+          <View style={{ width: 44 }} />
         </View>
       </SafeAreaView>
 
@@ -553,13 +553,11 @@ export default function ReaderScreen() {
             <View style={styles.navRow}>
               <NavButton
                 label="Previous"
-                icon="arrow-back"
                 disabled={!prev}
                 onPress={() => goToChapter(prev)}
               />
               <NavButton
                 label={next ? 'Next chapter' : 'The end'}
-                icon="arrow-forward"
                 iconRight
                 disabled={!next}
                 onPress={() => goToChapter(next)}
@@ -632,22 +630,27 @@ export default function ReaderScreen() {
 
 function NavButton({
   label,
-  icon,
   iconRight,
   disabled,
   onPress,
 }: {
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
   iconRight?: boolean;
   disabled?: boolean;
   onPress: () => void;
 }) {
   const theme = useTheme();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   return (
     <Pressable
       onPress={onPress}
+      onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}
+      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      aria-disabled={disabled}
       style={({ pressed }) => [
         styles.navBtn,
         {
@@ -655,9 +658,11 @@ function NavButton({
           opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
         },
       ]}>
-      {!iconRight && <Ionicons name={icon} size={16} color={theme.text} />}
-      <ThemedText type="smallBold">{label}</ThemedText>
-      {iconRight && <Ionicons name={icon} size={16} color={theme.text} />}
+      {({ pressed }) => <>
+        {!iconRight && <WalkingArrow active={hovered || focused || pressed} disabled={disabled} color={theme.text} />}
+        <ThemedText type="smallBold" style={styles.navLabel}>{label}</ThemedText>
+        {iconRight && <WalkingArrow direction="forward" active={hovered || focused || pressed} disabled={disabled} color={theme.text} />}
+      </>}
     </Pressable>
   );
 }
@@ -705,10 +710,8 @@ function SignInGate({
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeAreaTop}>
         <View style={styles.headerBar}>
-          <Pressable onPress={onBack} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
-          </Pressable>
-          <View style={{ width: 26 }} />
+          <BackButton onPress={onBack} />
+          <View style={{ width: 44 }} />
         </View>
       </SafeAreaView>
       <View style={styles.locked}>
@@ -840,13 +843,16 @@ const styles = StyleSheet.create({
   },
   navBtn: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.two,
+    gap: 6,
+    paddingHorizontal: 10,
     height: 48,
     borderRadius: 12,
   },
+  navLabel: { flexShrink: 1, textAlign: 'center', lineHeight: 18 },
   locked: {
     flex: 1,
     alignItems: 'center',

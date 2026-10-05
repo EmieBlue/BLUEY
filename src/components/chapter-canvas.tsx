@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NaturalImage } from '@/components/natural-image';
+import { BackButton } from '@/components/back-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -28,6 +29,7 @@ interface ChapterCanvasProps {
   value: ChapterDraft;
   onChange: (patch: Partial<ChapterDraft>) => void;
   onDone: () => void;
+  onBack: () => void;
   doneLabel?: string;
   headerLabel?: string;
   busy?: boolean;
@@ -45,6 +47,7 @@ export function ChapterCanvas({
   value,
   onChange,
   onDone,
+  onBack,
   doneLabel = 'Done',
   headerLabel = 'Write',
   busy = false,
@@ -130,9 +133,7 @@ export function ChapterCanvas({
     <ThemedView style={styles.container}>
       <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
         <View style={[styles.bar, { borderBottomColor: theme.backgroundElement }]}>
-          <Pressable onPress={onDone} hitSlop={12} disabled={busy || pagesLoading}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
-          </Pressable>
+          <BackButton onPress={onBack} disabled={busy || uploading} />
           <ThemedText type="smallBold" numberOfLines={1} style={styles.barTitle}>
             {headerLabel}
           </ThemedText>

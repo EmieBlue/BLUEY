@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Alert, Platform, StyleSheet } from 'react-native';
 
+import { BackButton } from '@/components/back-button';
 import { ChapterCanvas } from '@/components/chapter-canvas';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,10 +10,12 @@ import { useStoriesData } from '@/context/stories';
 import { fetchComicPages } from '@/lib/comic';
 import { addChapterToStory, updateChapter, type ChapterDraft } from '@/lib/publish-story';
 import { supabase } from '@/lib/supabase';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 
 export default function AddChapterScreen() {
   const { storyId, chapterId } = useLocalSearchParams<{ storyId: string; chapterId?: string }>();
   const router = useRouter();
+  const goBack = useBackNavigation(storyId ? { pathname: '/story/[id]', params: { id: storyId } } : '/library');
   const { refresh, getStoryById } = useStoriesData();
   const story = getStoryById(storyId);
   const comic = story?.kind === 'comic';
@@ -35,6 +38,7 @@ export default function AddChapterScreen() {
   // For editing a comic chapter: existing pages as {path (to save), url (to preview)}.
   const [initialPages, setInitialPages] = useState<{ path: string; url: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefilledRef = useRef(false);
   // A comic being edited must load its existing pages before Save is allowed —
@@ -79,7 +83,22 @@ export default function AddChapterScreen() {
     };
   }, [isEditing, chapterId, storyId, comic, hadPages]);
 
-  const goToStory = () => router.replace({ pathname: '/story/[id]', params: { id: storyId } });
+  const goToStory = () => router.dismissTo({ pathname: '/story/[id]', params: { id: storyId } });
+
+  const onBack = () => {
+    if (!dirty) {
+      goBack();
+      return;
+    }
+    if (Platform.OS === 'web') {
+      if (window.confirm('Discard your unsaved chapter changes?')) goBack();
+    } else {
+      Alert.alert('Discard changes?', 'Your chapter changes have not been saved.', [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard', style: 'destructive', onPress: goBack },
+      ]);
+    }
+  };
 
   const onDone = async () => {
     const hasPages = !!(chapter.pages && chapter.pages.length);
@@ -118,9 +137,7 @@ export default function AddChapterScreen() {
     return (
       <ThemedView style={styles.c}>
         <ThemedText>Story not found.</ThemedText>
-        <Pressable onPress={() => router.back()}>
-          <ThemedText type="linkPrimary">Go back</ThemedText>
-        </Pressable>
+        <BackButton onPress={goBack} />
       </ThemedView>
     );
   }
@@ -131,7 +148,11 @@ export default function AddChapterScreen() {
       comic={comic}
       initialPages={initialPages}
       pagesLoading={comic && isEditing && !pagesLoaded}
-      onChange={(p) => setChapter((c) => ({ ...c, ...p }))}
+      onChange={(p) => {
+        setDirty(true);
+        setChapter((c) => ({ ...c, ...p }));
+      }}
+      onBack={onBack}
       onDone={onDone}
       doneLabel={isEditing ? 'Save changes' : 'Save chapter'}
       headerLabel={isEditing ? 'Edit chapter' : `Add to "${story.title}"`}

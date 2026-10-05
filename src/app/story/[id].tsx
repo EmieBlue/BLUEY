@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
 import { LoadingView } from '@/components/loading-view';
+import { BackButton } from '@/components/back-button';
 import { ReviewsSection } from '@/components/reviews-section';
 import { StoryCover } from '@/components/story-cover';
 import { YouTubePlayer } from '@/components/youtube-player';
@@ -20,11 +21,13 @@ import { setStoryStatus } from '@/lib/publish-story';
 import { broadcastPush } from '@/lib/push';
 import type { Chapter, Story } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 
 export default function StoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const router = useRouter();
+  const goBack = useBackNavigation('/explore');
   const { hasPurchased, isAuthor, isFollowing, toggleFollow, getProgressChapterId } = useAppState();
   const { loading, getStoryById, refresh } = useStoriesData();
   const { user } = useAuth();
@@ -37,7 +40,7 @@ export default function StoryDetailScreen() {
   const [notifyBusy, setNotifyBusy] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState<string | null>(null);
 
-  if (loading) return <LoadingView />;
+  if (loading) return <LoadingView onBack={goBack} />;
 
   const story = getStoryById(id);
 
@@ -45,9 +48,7 @@ export default function StoryDetailScreen() {
     return (
       <ThemedView style={styles.notFound}>
         <ThemedText>Story not found.</ThemedText>
-        <Pressable onPress={() => router.back()}>
-          <ThemedText type="linkPrimary">Go back</ThemedText>
-        </Pressable>
+        <BackButton onPress={goBack} />
       </ThemedView>
     );
   }
@@ -121,9 +122,7 @@ export default function StoryDetailScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         {/* Header */}
         <View style={styles.headerBar}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
-          </Pressable>
+          <BackButton onPress={goBack} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

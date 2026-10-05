@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { BackButton } from '@/components/back-button';
 import { useTheme } from '@/hooks/use-theme';
 
 const isWeb = Platform.OS === 'web';
@@ -129,13 +129,14 @@ export function ComicPager({
 
       {/* Arrow buttons (discoverable on desktop; harmless on phone). */}
       {!atStart && (
-        <Pressable style={[styles.arrow, styles.arrowLeft]} onPress={() => go(-1)} hitSlop={8}>
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
-        </Pressable>
+        <View style={[styles.arrow, styles.arrowLeft]}>
+          <BackButton accessibilityLabel="Previous page" onPress={() => go(-1)} />
+        </View>
       )}
-      <Pressable style={[styles.arrow, styles.arrowRight]} onPress={() => go(1)} hitSlop={8}>
-        <Ionicons name={atEnd && onNext ? 'play-forward' : 'chevron-forward'} size={24} color="#FFFFFF" />
-      </Pressable>
+      <View style={[styles.arrow, styles.arrowRight]}>
+        <BackButton direction="forward" accessibilityLabel={atEnd && onNext ? 'Next chapter' : 'Next page'}
+          disabled={atEnd && !onNext} onPress={() => go(1)} />
+      </View>
 
       {/* Page counter */}
       <View style={styles.counter} pointerEvents="none">
@@ -192,10 +193,6 @@ const styles = StyleSheet.create({
     marginTop: -22,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: HIT,
   },
   arrowLeft: { left: 10 },
   arrowRight: { right: 10 },

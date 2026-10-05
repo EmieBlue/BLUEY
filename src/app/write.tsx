@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StoryCover } from '@/components/story-cover';
+import { BackButton } from '@/components/back-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -26,6 +27,7 @@ import { publishStory, updateStory } from '@/lib/publish-story';
 import { uploadCover } from '@/lib/upload-cover';
 import { youTubeId } from '@/lib/youtube';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 
 const LANGUAGES = ['English', 'Spanish', 'French', 'Portuguese', 'German', 'Other'];
 const STORY_TYPES = ['Fiction', 'Fanfic', 'Nonfiction', 'Poetry'];
@@ -43,6 +45,7 @@ export default function WriteScreen() {
   const wide = Math.min(width, MaxContentWidth) >= 700;
 
   const { storyId: editId } = useLocalSearchParams<{ storyId?: string }>();
+  const goBack = useBackNavigation(editId ? { pathname: '/story/[id]', params: { id: editId } } : '/library');
   const existing = editId ? getStoryById(editId) : undefined;
   const isEditing = !!existing;
 
@@ -156,7 +159,7 @@ export default function WriteScreen() {
         return;
       }
       await refresh();
-      router.replace({ pathname: '/story/[id]', params: { id: existing.id } });
+      router.dismissTo({ pathname: '/story/[id]', params: { id: existing.id } });
       return;
     }
     // Create mode: make a draft. Films have no chapters → go straight to the film
@@ -179,9 +182,7 @@ export default function WriteScreen() {
     return (
       <ThemedView style={styles.centered}>
         <ThemedText style={{ textAlign: 'center' }}>Writing is available to authors only.</ThemedText>
-        <Pressable onPress={() => router.back()}>
-          <ThemedText type="linkPrimary">Go back</ThemedText>
-        </Pressable>
+        <BackButton onPress={goBack} />
       </ThemedView>
     );
   }
@@ -368,7 +369,7 @@ export default function WriteScreen() {
               {title || 'Untitled Story'}
             </ThemedText>
           </View>
-          <Pressable onPress={() => router.back()} style={[styles.cancelBtn, { borderColor: theme.backgroundSelected }]}>
+          <Pressable onPress={goBack} accessibilityRole="button" style={[styles.cancelBtn, { borderColor: theme.backgroundSelected }]}>
             <ThemedText type="smallBold">Cancel</ThemedText>
           </Pressable>
           <Pressable

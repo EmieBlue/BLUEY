@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SectionHeader } from '@/components/section-header';
+import { BackButton } from '@/components/back-button';
 import { ThemeSwitch } from '@/components/theme/theme-switch';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,11 +14,13 @@ import { Colors, MaxContentWidth, Spacing, THEMES } from '@/constants/theme';
 import { useAuth } from '@/context/auth';
 import { useThemeMode } from '@/context/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 import { enablePush, pushPermission, pushSupported } from '@/lib/push';
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const goBack = useBackNavigation('/library');
   const { themeKey, setThemeKey } = useThemeMode();
   const { user, configured, signOut } = useAuth();
   const [themeAnimating, setThemeAnimating] = useState(false);
@@ -45,11 +48,9 @@ export default function SettingsScreen() {
     <ThemedView nativeID="elyra-settings" style={styles.container}>
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.headerBar}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color={theme.text} />
-          </Pressable>
+          <BackButton onPress={goBack} />
           <ThemedText type="smallBold">Settings</ThemedText>
-          <View style={{ width: 26 }} />
+          <View style={{ width: 44 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

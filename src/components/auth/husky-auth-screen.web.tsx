@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useRef, useState, type FormEvent } from 'react';
 
 import { APP_NAME } from '@/config/app';
+import { WalkingArrow } from '@/components/walking-arrow';
 import { useAuth } from '@/context/auth';
+import { useBackNavigation } from '@/hooks/use-back-navigation';
 import { HuskyAuthStyles } from './husky-auth-styles';
 import { usePasswordGuard } from './use-password-guard';
 
 type Mode = 'signin' | 'signup' | 'reset';
 
 export default function HuskyAuthScreen() {
-  const router = useRouter();
+  const leave = useBackNavigation('/explore');
   const { signIn, signUp, resetPassword, configured } = useAuth();
   const [mode, setMode] = useState<Mode>('signin');
   const [name, setName] = useState('');
@@ -18,6 +19,7 @@ export default function HuskyAuthScreen() {
   const [password, setPassword] = useState('');
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [backActive, setBackActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const pending = useRef(false);
@@ -35,11 +37,6 @@ export default function HuskyAuthScreen() {
     setVisible(false);
     guard.stop();
     heading.current?.focus();
-  }
-
-  function leave() {
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -82,9 +79,12 @@ export default function HuskyAuthScreen() {
     <main className="elyra-auth">
       <HuskyAuthStyles />
       <nav className="den-nav" aria-label="Sign-in navigation">
-        <button type="button" className="den-back" onClick={leave}>
-          <Ionicons name="arrow-back" size={18} color="currentColor" />
-          <span>Back to stories</span>
+        <button type="button" className="den-back" aria-label="Back to stories" title="Back to stories" onClick={leave}
+          onPointerEnter={() => setBackActive(true)} onPointerLeave={() => setBackActive(false)}
+          onPointerDown={() => setBackActive(true)} onPointerUp={() => setBackActive(false)}
+          onPointerCancel={() => setBackActive(false)}
+          onFocus={() => setBackActive(true)} onBlur={() => setBackActive(false)}>
+          <WalkingArrow active={backActive} color="#ecd097" />
         </button>
         <a className="den-wordmark" href="/" aria-label={`${APP_NAME} home`}>
           <img src="/icon-192.png" alt="" width="32" height="32" />

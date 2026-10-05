@@ -10,8 +10,10 @@ export function HuskyAuthStyles() {
     .elyra-auth :focus-visible { outline:2px solid var(--den-gold); outline-offset:5px; }
     .elyra-auth h1:focus { outline:none; }
     .den-nav { padding:28px 40px; display:flex; flex-shrink:0; justify-content:space-between; align-items:center; gap:16px; }
-    .den-back { display:flex; gap:10px; align-items:center; background:none; border:0; padding:10px 0; color:var(--den-muted); font-size:14px!important; }
-    .den-back:hover { color:#fff; }
+    .den-back { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; padding:0; border-radius:50%; border:1px solid #ecd09766; background:var(--den-surface); color:var(--den-gold); box-shadow:0 3px 8px #0000001f; transition:background-color 150ms,border-color 150ms,box-shadow 150ms; }
+    .den-back:hover { background:${Colors.emeralddark.backgroundSelected}; border-color:var(--den-gold); }
+    .den-back:active { background:${Colors.emeralddark.backgroundSelected}; border-color:var(--den-gold); box-shadow:none; }
+    .den-back:focus-visible { outline-offset:3px; }
     .den-wordmark { color:var(--den-gold); text-decoration:none; display:flex; align-items:center; gap:10px; font:600 19px Georgia,serif; }
     .den-wordmark img { border-radius:6px; }
     .den-layout { width:min(940px,100%); padding:40px 30px 54px; margin:auto; display:grid; flex-shrink:0; grid-template-columns:minmax(240px,1fr) minmax(0,430px); align-items:center; gap:50px; }
