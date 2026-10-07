@@ -7,7 +7,7 @@
  * cache when the network fails. Cross-origin requests (Supabase, Paystack) and
  * our Netlify functions are left completely untouched.
  */
-const CACHE = 'elyra-runtime-v2';
+const CACHE = 'elyra-runtime-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -25,7 +25,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // Only handle same-origin GETs; never touch functions or cross-origin APIs.
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/.netlify/')) return;
+  if (url.pathname.startsWith('/.netlify/') || url.pathname.startsWith('/api/')) return;
   // Let the browser stream and seek video directly. Cache.put cannot store
   // partial (206) responses, and full movies should not fill the offline cache.
   if (req.headers.has('range') || req.destination === 'video' || /\.(mp4|webm)$/i.test(url.pathname)) return;

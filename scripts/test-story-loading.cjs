@@ -58,7 +58,9 @@ async function fixture(browser, width = 390) {
   });
   await context.route('**/api/**', route => {
     if (route.request().url().includes('/narrate')) {
-      narration.push(route.request().postDataJSON());
+      const request = route.request().postDataJSON();
+      if (request.cacheOnly) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ cached: false }) });
+      narration.push(request);
       return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Fixture narration unavailable' }) });
     }
     return route.fulfill({ status: config.comicStatus,

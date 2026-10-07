@@ -19,7 +19,7 @@ const CORS = {
 const json = (status, obj) =>
   new Response(JSON.stringify(obj), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...CORS, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
 
 // Genre → OpenAI voice + a tone instruction so the narration "acts out" the story.
@@ -103,7 +103,14 @@ export async function onRequestGet({ request, env }) {
   if (!f || !/^[\w.\-]+$/.test(f)) return new Response('Bad request', { status: 400 });
   const supaUrl = `${env.SUPABASE_URL}/storage/v1/object/public/tts/${f}`;
   const range = request.headers.get('Range');
-  const upstream = await fetch(supaUrl, { headers: range ? { Range: range } : {} });
+  let upstream;
+  try {
+    upstream = await fetchWithTimeout(supaUrl, { headers: range ? { Range: range } : {} }, 15000);
+  } catch {
+    return json(503, { error: 'Could not load the recording. Please try again.' });
+  }
+  // Never cache an error as an immutable recording for a year.
+  if (!upstream.ok) return json(upstream.status === 400 ? 404 : upstream.status, { error: 'Recording unavailable. Please try again.' });
   const headers = new Headers({
     'Content-Type': 'audio/mpeg',
     'Accept-Ranges': 'bytes',
@@ -134,9 +141,8 @@ async function handle({ request, env }) {
   } catch {
     return json(400, { error: 'Bad request.' });
   }
-  const { chapterId, text, genre } = body;
-  if (!chapterId || !text || !text.trim()) return json(400, { error: 'Missing chapterId or text.' });
-  if (!env.OPENAI_API_KEY) return json(502, { error: 'Narration is not configured yet.' });
+  const { chapterId, text, genre, cacheOnly } = body ?? {};
+  if (typeof chapterId !== 'string' || !/^[\w.-]+$/.test(chapterId) || typeof text !== 'string' || !text.trim()) return json(400, { error: 'Missing or invalid chapterId or text.' });
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return json(502, { error: 'Narration is not configured yet.' });
   }
@@ -150,15 +156,21 @@ async function handle({ request, env }) {
   const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/tts/${objectPath}`;
   // Same-origin audio URL the browser will actually play.
   const origin = new URL(request.url).origin;
-  const sameOriginUrl = `${origin}/api/narrate?f=${encodeURIComponent(objectPath)}`;
+  const sameOriginUrl = `${origin}/api/narrate?f=${encodeURIComponent(objectPath)}&v=2`;
 
   // Already generated? Serve the cached file.
   try {
     const head = await fetchWithTimeout(publicUrl, { method: 'HEAD' }, 10000);
     if (head.ok) return json(200, { url: sameOriginUrl, cached: true });
+    // A storage outage is not a cache miss: do not regenerate existing audio.
+    if (head.status !== 400 && head.status !== 404) return json(503, { error: 'Could not check the saved recording. Please try again.' });
   } catch {
-    /* fall through to generate */
+    return json(503, { error: 'Could not check the saved recording. Please try again.' });
   }
+
+  // Safe to call while opening a chapter: a lookup must never incur TTS costs.
+  if (cacheOnly) return json(200, { cached: false });
+  if (!env.OPENAI_API_KEY) return json(502, { error: 'Narration is not configured yet.' });
 
   // Generate every chunk in parallel, preserving order.
   const chunks = chunkText(text);

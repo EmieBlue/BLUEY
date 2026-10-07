@@ -37,7 +37,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useBackNavigation } from '@/hooks/use-back-navigation';
 import { fetchComicPages } from '@/lib/comic';
 import { supabase } from '@/lib/supabase';
-import { getChapterAudioUrl } from '@/lib/tts';
+import { forgetChapterAudio, getChapterAudioUrl } from '@/lib/tts';
 
 const READING_WIDTH = 720;
 
@@ -89,6 +89,7 @@ export default function ReaderScreen() {
   const comicPages = loadedFor === contentKey ? loadedPages : null;
   const autoStartedRef = useRef<string | null>(null);
   const narrationRequest = useRef(0);
+  const audioChapter = useRef('');
   const pendingSeekRef = useRef<number | null>(null); // resume position to seek to once loaded
   const lastSaveRef = useRef(0);
 
@@ -116,6 +117,7 @@ export default function ReaderScreen() {
   // New chapter → forget the old audio and stop playing.
   useEffect(() => {
     narrationRequest.current++;
+    audioChapter.current = '';
     autoStartedRef.current = null;
     setAudioReady(false);
     setAudioError(null);
@@ -196,6 +198,28 @@ export default function ReaderScreen() {
   }, [result?.chapter, storyId, chapterId, locked, user?.id, isComic, loading, catalogueError, hydrated, accountError, contentAttempt, source]);
 
   const retryContent = () => { setContentAttempt(attempt => attempt + 1); void refresh(); };
+
+  // Look up existing recordings while the chapter opens, without generating
+  // paid audio for readers who never press Listen.
+  const narrationGenre = result?.story.genres?.[0];
+  useEffect(() => {
+    if (readable && content?.length) {
+      void getChapterAudioUrl({ chapterId, text: content.join('\n\n'), genre: narrationGenre }, { cacheOnly: true });
+    }
+  }, [readable, content, chapterId, narrationGenre]);
+
+  useEffect(() => {
+    if (!status.error || audioChapter.current !== contentKey || !content?.length) return;
+    audioChapter.current = '';
+    setAudioReady(false);
+    setAudioError('Could not load the recording. Tap Listen to try again.');
+    player.pause();
+    const request = narrationRequest.current;
+    setPreparing(true);
+    void forgetChapterAudio({ chapterId, text: content.join('\n\n'), genre: narrationGenre }).finally(() => {
+      if (request === narrationRequest.current) setPreparing(false);
+    });
+  }, [status.error, contentKey, chapterId, content, narrationGenre, player]);
 
   const handleEnd = () => {
     if (!result) return;
@@ -283,6 +307,7 @@ export default function ReaderScreen() {
       }
       if (request !== narrationRequest.current) return;
       try {
+        audioChapter.current = contentKey;
         player.replace(res.url);
         player.playbackRate = rate;
         pendingSeekRef.current = savedPos;
@@ -456,6 +481,8 @@ export default function ReaderScreen() {
               <View style={styles.audioTopRow}>
                 <Pressable
                   onPress={toggleListen}
+                  accessibilityRole="button"
+                  accessibilityLabel={preparing ? 'Preparing narration' : playing ? 'Pause narration' : 'Listen to chapter'}
                   disabled={preparing}
                   style={[styles.listenBtn, { backgroundColor: theme.accent, opacity: preparing ? 0.7 : 1 }]}>
                   {preparing ? (
@@ -570,7 +597,7 @@ export default function ReaderScreen() {
                 </ThemedText>
               ) : (
                 <ThemedText type="small" themeColor="textSecondary">
-                  🎧 Natural narration, matched to this story’s mood.
+                  AI narration, matched to this story's mood.
                 </ThemedText>
               )}
             </View>
